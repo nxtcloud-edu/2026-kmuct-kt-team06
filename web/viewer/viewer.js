@@ -98,6 +98,75 @@
     media,
     currentSegment,
     requestId = 0;
+  let splitButton, transcript, transcriptRows = [], transcriptRequest = 0;
+  function setSplit(enabled) {
+    root.classList.toggle("v-split", enabled);
+    splitButton.title = enabled ? "작은 플레이어로 돌아가기" : "노트와 영상 나란히 보기";
+    splitButton.setAttribute("aria-label", splitButton.title);
+    splitButton.setAttribute("aria-pressed", String(enabled));
+  }
+  function seekToTranscriptTime(timeValue) {
+    if (!media) return false;
+    const player = media;
+    const apply = () => {
+      player.currentTime = timeValue;
+      highlightTranscript(timeValue);
+      if (player.paused) player.play().catch(() => {});
+    };
+    if (player.readyState > 0 && Number.isFinite(player.duration)) {
+      apply();
+      return true;
+    }
+    const onLoaded = () => {
+      player.removeEventListener("loadedmetadata", onLoaded);
+      apply();
+    };
+    player.addEventListener("loadedmetadata", onLoaded, { once: true });
+    return true;
+  }
+  function highlightTranscript(t) {
+    for (const { row, entry } of transcriptRows) {
+      const active = entry.t_start <= t && t < entry.t_end;
+      row.classList.toggle("active", active);
+      if (active) row.setAttribute("aria-current", "true");
+      else row.removeAttribute("aria-current");
+    }
+  }
+  async function loadTranscript(lecture, t, segments) {
+    const token = ++transcriptRequest;
+    transcriptRows = [];
+    transcript.replaceChildren(el("h2", "", "STT 스크립트"), el("p", "v-muted", "스크립트를 불러오는 중…"));
+    try {
+      const response = await fetch(`/raw/${encodeURIComponent(lecture)}/transcript.json`);
+      if (!response.ok) throw new Error(response.status === 404
+        ? "아직 등록된 STT 스크립트가 없습니다."
+        : "STT 스크립트를 불러오지 못했습니다.");
+      const entries = await response.json();
+      if (!Array.isArray(entries)) throw new Error("STT 스크립트 형식을 확인해 주세요.");
+      if (token !== transcriptRequest) return;
+      transcript.replaceChildren(el("h2", "", "STT 스크립트"));
+      for (const entry of entries.filter((e) => typeof e.text === "string" && Number.isFinite(e.t_start) && Number.isFinite(e.t_end) && e.t_start >= 0 && e.t_end > e.t_start).sort((a, b) => a.t_start - b.t_start)) {
+        const row = btn("", "v-transcript-row", () => {
+          const segment = segments.find((s) => s.t_start <= entry.t_start && entry.t_start < s.t_end);
+          if (media && !media.error) {
+            seekToTranscriptTime(entry.t_start);
+            setSplit(true);
+          } else if (segment) {
+            openAnchor(`${lecture}#s${segment.s}@t=${Math.ceil(entry.t_start)}`);
+          }
+        });
+        row.append(el("span", "v-transcript-time", time(entry.t_start)), el("span", "", entry.text));
+        transcript.append(row);
+        transcriptRows.push({ row, entry });
+      }
+      if (!transcriptRows.length) transcript.append(el("p", "v-muted", "아직 등록된 STT 스크립트가 없습니다."));
+      highlightTranscript(media?.currentTime ?? t);
+    } catch (e) {
+      if (token !== transcriptRequest) return;
+      transcript.replaceChildren(el("h2", "", "STT 스크립트"), el("p", "v-muted", e.message),
+        btn("다시 불러오기", "v-secondary", () => loadTranscript(lecture, t, segments)));
+    }
+  }
   const pages = [];
   const localAssets = new Map();
   function anchor(value) {
@@ -834,6 +903,7 @@
               "원본 미디어를 불러올 수 없습니다. 파일 경로를 확인해 주세요.",
             );
           media.ontimeupdate = () => {
+            highlightTranscript(player.currentTime);
             if (currentSegment?.lecture !== lecture) return;
             if (
               !player.paused &&
@@ -857,11 +927,11 @@
               player.currentTime >= currentSegment.t_end &&
               boundaryHandled !== currentSegment.k &&
               !player.paused &&
-              document.getElementById("v-auto-pause").checked
+              document.getElementById("v-auto-pause")?.checked
             ) {
               boundaryHandled = currentSegment.k;
               player.pause();
-              root.classList.add("v-split");
+              setSplit(true);
               emit("segment-boundary", {
                 lecture,
                 k: currentSegment.k,
@@ -874,6 +944,7 @@
           host.append(media);
         }
       }
+      loadTranscript(lecture, t, data.segments);
       emit("anchor-open", { lecture, s, t, anchor: clean });
       emit("segment-boundary", {
         lecture,
@@ -908,48 +979,26 @@
       ),
     );
     main = el("main", "v-main");
-    workspace.append(top, main);
+    const content = el("div", "v-learning-content");
+    workspace.append(top, content);
     pane = el("aside", "v-player");
     pane.id = "v-pane";
     pane.hidden = true;
     const ph = el("div", "v-player-head");
     const pt = el("strong", "", "원본 보기");
     pt.id = "v-source-title";
-    const fullscreen = btn("↔", "v-icon-button", async () => {
-      if (document.fullscreenElement === pane) {
-        await document.exitFullscreen();
-      } else if (pane.classList.contains("v-player-fullscreen")) {
-        pane.classList.remove("v-player-fullscreen");
-      } else {
-        try {
-          await pane.requestFullscreen();
-        } catch {
-          pane.classList.add("v-player-fullscreen");
-        }
-      }
-      syncFullscreen();
-    });
-    function syncFullscreen() {
-      const expanded = document.fullscreenElement === pane || pane.classList.contains("v-player-fullscreen");
-      fullscreen.title = expanded ? "전체 화면 종료" : "전체 화면";
-      fullscreen.setAttribute("aria-label", fullscreen.title);
-      fullscreen.setAttribute("aria-pressed", String(expanded));
-    }
-    syncFullscreen();
-    document.addEventListener("fullscreenchange", syncFullscreen);
+    splitButton = btn("\u2194", "v-icon-button", () => setSplit(!root.classList.contains("v-split")));
+    setSplit(false);
     document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") {
-        pane.classList.remove("v-player-fullscreen");
-        syncFullscreen();
-      }
+      if (event.key === "Escape" && !document.querySelector("dialog[open]")) setSplit(false);
     });
     ph.append(
       pt,
-      fullscreen,
+      splitButton,
       btn("×", "v-icon-button", () => {
-        if (document.fullscreenElement === pane) document.exitFullscreen().catch(() => {});
-        pane.classList.remove("v-player-fullscreen");
-        syncFullscreen();
+        setSplit(false);
+        requestId++;
+        transcriptRequest++;
         pane.hidden = true;
         media?.pause();
         root.classList.remove("v-has-player", "v-split");
@@ -961,10 +1010,15 @@
     };
     const mh = el("div");
     mh.id = "v-media";
-    pane.append(ph, frame, mh);
+    transcript = el("section", "v-transcript");
+    transcript.setAttribute("aria-label", "STT script");
+    const visual = el("div", "v-player-visual");
+    visual.append(frame, mh);
+    pane.append(ph, visual, transcript);
+    content.append(main, pane);
     let dragState = null;
     ph.addEventListener("pointerdown", (event) => {
-      if (event.target.closest("button") || document.fullscreenElement === pane || pane.classList.contains("v-player-fullscreen")) return;
+      if (event.target.closest("button") || root.classList.contains("v-split")) return;
       dragState = {
         x: event.clientX,
         y: event.clientY,
@@ -988,7 +1042,7 @@
     });
     const chat = el("aside", "v-chat");
     chat.id = "chat-slot";
-    root.append(nav, workspace, pane, chat);
+    root.append(nav, workspace, chat);
     fetch("/web/viewer/library.json")
       .then((r) => {
         if (!r.ok) throw new Error("노트 목록을 불러오지 못했습니다.");

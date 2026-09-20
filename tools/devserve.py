@@ -11,11 +11,17 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 PASS = ("web", "mock", "raw")
+mimetypes.add_type("font/woff2", ".woff2")  # 3.10 의 mimetypes 는 woff2 를 모른다 → KaTeX 폰트가 깨진다
+mimetypes.add_type("font/woff", ".woff")
+
 INJECT = b"""
 <link rel="stylesheet" href="/web/viewer/viewer.css">
 <link rel="stylesheet" href="/web/notes/notes.css">
+<link rel="stylesheet" href="/web/vendor/katex/katex.min.css">
 <script defer src="/web/viewer/viewer.js"></script>
 <script defer src="/web/notes/notes.js"></script>
+<script defer src="/web/vendor/katex/katex.min.js"></script>
+<script defer src="/web/notes/richtext.js"></script>
 <script defer src="/web/notes/chat.js"></script>
 """
 

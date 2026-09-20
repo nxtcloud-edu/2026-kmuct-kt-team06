@@ -12,25 +12,37 @@ from pathlib import Path
 
 SENT = re.compile(r"[^.?!]+[.?!]?")
 
-# api/media.json — 강의별 과목명(course). 매 타건마다 불리는 경로라 mtime 캐시로 읽는다.
-_MEDIA_PATH = Path(__file__).resolve().parent.parent / "api" / "media.json"
-_media_cache: tuple = (None, {})   # (mtime, data)
+# api/media.json(+ raw/media.local.json 덧씌우기) — 강의별 과목명(course).
+# 매 타건마다 불리는 경로라 두 파일의 mtime 을 키로 캐시한다(덧씌우기 변경도 바로 잡히게).
+_ROOT = Path(__file__).resolve().parent.parent
+_MEDIA_PATH = _ROOT / "api" / "media.json"
+_MEDIA_LOCAL = _ROOT / "raw" / "media.local.json"
+_media_cache: tuple = (None, {})   # ((mtime, mtime), data)
 
 
 def _media() -> dict:
-    """media.json 을 mtime 캐시로 읽는다. 파일 없음·깨진 JSON 이면 {} (검색은 계속된다)."""
+    """media.json + media.local.json 을 mtime 캐시로 읽는다. 없음·깨진 JSON 이면 무시(검색은 계속된다)."""
     global _media_cache
-    try:
-        mtime = _MEDIA_PATH.stat().st_mtime
-    except OSError:
-        _media_cache = (None, {})
-        return {}
-    if _media_cache[0] != mtime:
+    stamps = []
+    for p in (_MEDIA_PATH, _MEDIA_LOCAL):
         try:
-            data = json.loads(_MEDIA_PATH.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            data = {}
-        _media_cache = (mtime, data if isinstance(data, dict) else {})
+            stamps.append(p.stat().st_mtime)
+        except OSError:
+            stamps.append(None)
+    key = tuple(stamps)
+    if _media_cache[0] != key:
+        data: dict = {}
+        for p in (_MEDIA_PATH, _MEDIA_LOCAL):
+            try:
+                d = json.loads(p.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            if not isinstance(d, dict):
+                continue
+            for k, v in d.items():
+                cur = data.get(k)
+                data[k] = {**cur, **v} if isinstance(cur, dict) and isinstance(v, dict) else v
+        _media_cache = (key, data)
     return _media_cache[1]
 
 

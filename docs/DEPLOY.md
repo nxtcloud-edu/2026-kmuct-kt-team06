@@ -8,6 +8,25 @@ Quartz 재빌드는 별도 tmux 세션(`build_wiki --watch`)이 `wiki/ → publi
 
 ---
 
+## 0-0. 실제 데모 서버 (2026-09-20, EC2 대신)
+
+EC2 는 느려서 폐기했다. 데모는 **stockllm**(OCI 도쿄)에서 돈다: https://motga.193-123-163-215.sslip.io
+
+```bash
+# 코드(main) — 서버에 git 인증이 없어 rsync 로 올린다. 데이터·키·빌드 산출물은 제외
+rsync -az --delete --exclude .git --exclude site/node_modules --exclude public --exclude wiki --exclude raw \
+      --exclude __pycache__ --exclude web/viewer/library.local.json ./ stockllm:motga/
+# 데이터(가짜 견본 L3 는 데모에 올리지 않는다)
+rsync -az --exclude 'L3*' --exclude notes/L3 --exclude concepts/bfs.md --exclude concepts/dfs.md \
+      --exclude concepts/graph-representation.md --exclude signals/exam-graph.md wiki/ stockllm:motga/wiki/
+rsync -az --exclude L3 raw/ stockllm:motga/raw/
+ssh stockllm 'tmux ls'                      # motga-wiki(build_wiki --watch) · motga-api(api.server 8010)
+ssh stockllm 'tmux kill-session -t motga-api; tmux new-session -d -s motga-api "cd ~/motga && while true; do python3 -m api.server 8010; sleep 2; done"'   # api/·pipeline/ 을 바꿨을 때
+```
+- 필요 패키지: python3.10+, node 22, `poppler-utils`(pdftoppm·pdftotext), `ffmpeg`. Caddy 블록은 `/etc/caddy/Caddyfile` 의 `motga.…sslip.io`(백업 `Caddyfile.bak-motga-0920`).
+- `web/` 만 바꿨으면 rsync 후 새로고침이면 된다(정적). 위키가 바뀌면 `--watch` 가 3초 안에 재빌드 + `library.local.json` 재생성.
+- 발표 후: tmux 두 세션 종료, Caddy 블록 제거, 서버의 `~/motga/.env` 삭제.
+
 ## 0. 사전 (로컬에서, 한 번)
 
 저장소에 **없는** 두 가지를 EC2로 올린다 — 실강의 데이터와 키:

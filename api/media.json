@@ -5,7 +5,8 @@
       "src": "/raw/L1/L1.mp4"
     },
     "date": "2026-09-13",
-    "course": "컴퓨터구조"
+    "course": "컴퓨터구조",
+    "title": "RISC-V ISA"
   },
   "L2": {
     "course": "컴퓨터구조",
@@ -13,7 +14,8 @@
     "video": {
       "kind": "audio",
       "src": "/raw/L2/L2.mp4"
-    }
+    },
+    "title": "RISC-V 명령어 포맷"
   },
   "L3": {
     "video": {
@@ -29,7 +31,8 @@
     "video": {
       "kind": "audio",
       "src": "/raw/L4/L4.mp4"
-    }
+    },
+    "title": "머지소트와 퀵소트"
   },
   "L5": {
     "course": "시스템소프트웨어",
@@ -37,7 +40,8 @@
     "video": {
       "kind": "audio",
       "src": "/raw/L5/L5.mp4"
-    }
+    },
+    "title": "메모리와 캐시"
   },
   "professorChannel": "UC_replace_with_real_channel_id"
 }

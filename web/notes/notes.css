@@ -178,6 +178,101 @@
   padding-left: 10px;
   border-left: 2px solid #d8d0e5;
 }
+/* 답변 본문 — 문단·목록·코드·수식(KaTeX). 좁은 채팅 칸을 절대 넓히지 않는다. */
+.n-answer {
+  min-width: 0;
+  line-height: 1.95;
+  overflow-wrap: anywhere;
+}
+.n-answer > *:first-child {
+  margin-top: 0;
+}
+.n-answer > *:last-child {
+  margin-bottom: 0;
+}
+.n-answer p {
+  margin: 9px 0;
+}
+.n-rich-heading {
+  margin: 14px 0 6px;
+  color: #6f6880;
+}
+.n-answer ul,
+.n-answer ol {
+  margin: 9px 0;
+  padding-left: 19px;
+}
+.n-answer li {
+  margin: 4px 0;
+}
+.n-answer li::marker {
+  color: #b0a5c2;
+}
+.n-answer blockquote {
+  margin: 12px 0;
+  padding-left: 10px;
+  border-left: 2px solid #d8d0e5;
+  color: #7e768c;
+}
+.n-answer code,
+.n-math-fallback {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.88em;
+  background: #f4f2f8;
+  border-radius: 4px;
+  padding: 1px 4px;
+  color: #6e6580;
+}
+.n-code-block {
+  margin: 10px 0;
+  padding: 10px 11px;
+  background: #f7f6fa;
+  border: 1px solid #eae7f0;
+  border-radius: 6px;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.n-code-block code {
+  background: none;
+  padding: 0;
+  white-space: pre;
+}
+.n-answer .n-link {
+  color: #8c7ba8;
+}
+.n-answer .v-anchor {
+  margin: 0 2px;
+  vertical-align: baseline;
+}
+.n-math {
+  overflow-wrap: normal;
+}
+.n-math-block,
+.n-answer .katex-display {
+  display: block;
+  margin: 12px 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.n-answer .katex {
+  font-size: 1.04em;
+}
+.n-math-fallback {
+  white-space: pre-wrap;
+}
+.n-sources {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin-top: 10px;
+}
+.n-sources-label {
+  font-size: 9px;
+  color: #a79bb5;
+}
 .n-quoted-note {
   padding: 9px;
   background: #f6f5f8;

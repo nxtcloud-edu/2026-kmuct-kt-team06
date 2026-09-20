@@ -171,6 +171,13 @@
   }
   const pages = [];
   const localAssets = new Map();
+  // 실제 위키로 만든 목록(tools/build_library.py, gitignore)이 있으면 그걸, 없으면 커밋된 견본을 쓴다.
+  async function loadPages() {
+    let response = await fetch("/web/viewer/library.local.json");
+    if (!response.ok) response = await fetch("/web/viewer/library.json");
+    if (!response.ok) throw new Error("노트 목록을 불러오지 못했습니다.");
+    return response.json();
+  }
   function anchor(value) {
     const n = btn(
       `↗ ${value.replace(/\[|\]/g, "").replace(/#s\d+@t=(\d+)/, (_, t) => ` · ${time(+t)}`)}`,
@@ -266,6 +273,15 @@
     for (const p of state.local.filter((p) => !p.folderId))
       renderFile(nav, p, true);
     const bottom = el("div", "v-sidebar-bottom");
+    // 분석이 도는 동안에는 어느 화면에 있든 진행 상황 칩이 사이드바에 남는다.
+    if (ingest) {
+      const chip = btn(ingestChipText(), "v-ingest-chip", () => {
+        closeMobileMenu();
+        show("upload");
+      });
+      chip.title = `${ingest.title || "강의"} · 분석 진행 중`;
+      bottom.append(chip);
+    }
     bottom.append(btn("＋  강의 자료 추가", "v-add", () => {
       state.uploadFolder = null;
       show("upload");
@@ -607,9 +623,15 @@
   }
   function upload() {
     const folderId = state.uploadFolder;
-    const folderName = folderId === "lectures" ? "알고리즘" :
-      folderId === "concepts" ? "개념 노트" :
-      state.folders.find((f) => f.id === folderId)?.name;
+    // 강의 폴더 id 는 `lectures:<과목>` 이다. 폴더 이름은 그 과목 이름을 그대로 쓴다.
+    const courseFolder = courseFromFolder(folderId);
+    const folderName = courseFolder ||
+      (folderId === "concepts" ? "개념 노트" :
+        state.folders.find((f) => f.id === folderId)?.name);
+    if (!state.mock) {
+      ingestView(courseFolder, folderName);
+      return;
+    }
     heading(
       "NEW LECTURE",
       "강의 자료 불러오기",
@@ -741,6 +763,556 @@
         "자료는 이 브라우저에 보관됩니다. AI 노트 생성은 백엔드 연결 후 사용할 수 있습니다.",
       ),
       create,
+    );
+    draw();
+  }
+  // ── 실서버 인제스트(POST /api/ingest → 폴링) ─────────────────────────────
+  // 순수 함수들(파일 종류·검증·단계·경과시간·과목 목록)은 노드에서 단위 테스트한다.
+  const INGEST_KEY = "motga-ingest-job";
+  const INGEST_COURSE_KEY = "motga-courses";
+  const INGEST_NEW_COURSE = "__new-course__";
+  const INGEST_MAX_BYTES = 500 * 1024 * 1024;
+  const INGEST_ACCEPT = ".mp4,.m4a,.mp3,.wav,.txt,.md,.json,.pdf";
+  const INGEST_EXT = /\.(mp4|m4a|mp3|wav|txt|md|json|pdf)$/i;
+  const INGEST_STAGES = [
+    ["upload", "업로드"],
+    ["stt", "음성 인식"],
+    ["align", "구간 정렬"],
+    ["episodic", "노트 정리"],
+    ["compile", "위키 컴파일"],
+    ["build", "빌드"],
+    ["done", "완료"],
+  ];
+  const INGEST_KIND_LABEL = {
+    slide: "슬라이드",
+    transcript: "전사본",
+    media: "녹음·영상",
+    other: "기타",
+  };
+  function fileKind(name) {
+    if (/\.pdf$/i.test(name)) return "slide";
+    if (/\.(md|txt|json)$/i.test(name)) return "transcript";
+    if (/\.(mp4|webm|m4a|mp3|wav)$/i.test(name)) return "media";
+    return "other";
+  }
+  function validateIngest(files) {
+    const list = files || [];
+    if (!list.length) return "분석할 파일을 먼저 선택해 주세요.";
+    const kinds = list.map((f) => fileKind(f.name));
+    if (!kinds.includes("slide"))
+      return "슬라이드 PDF가 필요합니다. .pdf 파일을 함께 선택해 주세요.";
+    if (!kinds.includes("transcript") && !kinds.includes("media"))
+      return "타임스탬프 전사본(.md · .json) 또는 녹음·영상 파일이 필요합니다.";
+    const total = list.reduce((sum, f) => sum + (f.size || 0), 0);
+    if (total > INGEST_MAX_BYTES)
+      return `전체 용량이 500MB를 넘습니다 (${Math.round(total / 1024 / 1024)}MB). 파일을 줄여 주세요.`;
+    return "";
+  }
+  function stageIndex(stage) {
+    return INGEST_STAGES.findIndex((s) => s[0] === stage);
+  }
+  function elapsedText(ms) {
+    const total = Math.max(0, Math.floor((ms || 0) / 1000));
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = total % 60;
+    if (h) return `${h}시간 ${m}분`;
+    if (m) return `${m}분 ${s}초`;
+    return `${s}초`;
+  }
+  function mergeCourses(fromPages, stored) {
+    const seen = new Map();
+    for (const raw of [...(fromPages || []), ...(stored || [])]) {
+      const name = typeof raw === "string" ? raw.trim() : "";
+      if (!name) continue;
+      const key = name.toLowerCase();
+      if (!seen.has(key)) seen.set(key, name);
+    }
+    return [...seen.values()].sort((a, b) => a.localeCompare(b, "ko"));
+  }
+  function courseFromFolder(folderId) {
+    return typeof folderId === "string" && folderId.startsWith("lectures:")
+      ? folderId.slice("lectures:".length)
+      : "";
+  }
+  function percentOf(value) {
+    return Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
+  }
+  let ingest = null;
+  let ingestStatus = null;
+  let ingestError = null;
+  let ingestDraft = { title: "", course: "" };
+  let ingestUI = null;
+  let ingestPollTimer = null;
+  let ingestWatchTimer = null;
+  let ingestClockTimer = null;
+  let ingestFailures = 0;
+  let ingestBusy = false;
+  const ingestChipText = () =>
+    `◷  ${ingest?.lecture || "강의"} 분석 중 ${percentOf(ingestStatus?.percent)}%`;
+  function renderIngestChip() {
+    const chip = document.querySelector(".v-ingest-chip");
+    if (!ingest) {
+      chip?.remove();
+      return;
+    }
+    // 칩이 아직 없으면(다른 화면에서 시작됐거나 새로고침 직후) 사이드바를 한 번 다시 그린다.
+    if (!chip) {
+      if (nav) sidebar();
+      return;
+    }
+    chip.textContent = ingestChipText();
+  }
+  function saveIngestJob(job) {
+    ingest = job;
+    if (job) save(INGEST_KEY, job);
+    else
+      try {
+        localStorage.removeItem(INGEST_KEY);
+      } catch {}
+    renderIngestChip();
+  }
+  function stopIngestPolling() {
+    clearInterval(ingestPollTimer);
+    clearInterval(ingestWatchTimer);
+    clearInterval(ingestClockTimer);
+    ingestPollTimer = ingestWatchTimer = ingestClockTimer = null;
+  }
+  function startIngestPolling() {
+    if (ingestPollTimer) return; // 화면을 다시 들어와도 타이머는 하나만
+    pollIngest();
+    ingestPollTimer = setInterval(pollIngest, 2000);
+    // 분석 중에도 위키는 자란다 — 20초마다 목록을 다시 읽어 새 노트를 사이드바에 반영한다.
+    ingestWatchTimer = setInterval(() => refreshPages(), 20000);
+    ingestClockTimer = setInterval(renderIngestElapsed, 1000);
+  }
+  async function pollIngest() {
+    if (!ingest || ingestBusy) return;
+    const job = ingest.job;
+    ingestBusy = true;
+    try {
+      const data = await api(`/api/ingest/${encodeURIComponent(job)}`);
+      if (!ingest || ingest.job !== job) return;
+      ingestFailures = 0;
+      ingestStatus = data;
+      if (data.lecture && data.lecture !== ingest.lecture)
+        saveIngestJob({ ...ingest, lecture: data.lecture });
+      renderIngestProgress();
+      if (data.stage === "done") await finishIngest(data);
+      else if (data.stage === "error")
+        failIngest(data.error || data.detail || "알 수 없는 오류");
+    } catch (e) {
+      if (!ingest || ingest.job !== job) return;
+      ingestFailures += 1;
+      if (ingestFailures >= 5) failIngest(e.message);
+      else renderIngestProgress();
+    } finally {
+      ingestBusy = false;
+    }
+  }
+  function failIngest(reason) {
+    stopIngestPolling();
+    ingestDraft = {
+      title: ingest?.title || ingestDraft.title,
+      course: ingest?.course || ingestDraft.course,
+    };
+    ingestError = reason || "알 수 없는 오류";
+    ingestStatus = null;
+    ingestUI = null;
+    saveIngestJob(null);
+    if (state.view === "upload") show("upload");
+    else toast(`분석 실패: ${ingestError}`);
+  }
+  async function finishIngest(data) {
+    const lecture = data.lecture || ingest?.lecture || "";
+    stopIngestPolling();
+    ingestUI = null;
+    ingestStatus = null;
+    ingestError = null;
+    saveIngestJob(null);
+    state.files = [];
+    ingestDraft = { title: "", course: "" };
+    const result = await refreshPages();
+    const added = result?.added || 0;
+    const target = lecture
+      ? pages.find((p) => p.slug.startsWith(`lectures/${lecture}_`))
+      : null;
+    if (target) {
+      toast(`분석이 끝났습니다 — 새 노트 ${added}개`);
+      show("note", target.slug);
+      return;
+    }
+    toast(
+      `분석이 끝났습니다 — 새 노트 ${added}개. ${lecture || "새 강의"} 노트를 목록에서 찾지 못해 이 화면에 머무릅니다.`,
+    );
+    if (state.view === "upload") show("upload");
+  }
+  // 목록 파일을 다시 읽어 바뀌었으면 pages 를 제자리에서 교체한다. { changed, added } 또는 null.
+  async function refreshPages() {
+    let next;
+    try {
+      next = await loadPages();
+    } catch {
+      return null;
+    }
+    if (!Array.isArray(next)) return null;
+    const before = new Set(pages.map((p) => p.slug));
+    const added = next.filter((p) => !before.has(p.slug));
+    // 슬러그가 그대로여도 본문이 다시 컴파일됐을 수 있어 내용까지 비교한다.
+    let same = next.length === pages.length && !added.length;
+    if (same)
+      try {
+        same = JSON.stringify(next) === JSON.stringify(pages);
+      } catch {
+        same = false;
+      }
+    if (same) return { changed: false, added: 0 };
+    if (!state.mock)
+      for (const p of added) if (p.status === "grey") state.hiddenSlugs.add(p.slug);
+    pages.splice(0, pages.length, ...next);
+    sidebar();
+    return { changed: true, added: added.length };
+  }
+  function resumeIngest() {
+    if (state.mock) return;
+    const saved = read(INGEST_KEY, null);
+    if (!saved || !saved.job) return;
+    ingest = saved;
+    ingestStatus = null;
+    ingestFailures = 0;
+    renderIngestChip();
+    startIngestPolling();
+  }
+  async function postIngest(files, title, course) {
+    const form = new FormData();
+    for (const f of files) form.append("files[]", f, f.name);
+    form.append("title", title);
+    form.append("course", course);
+    // api() 는 Content-Type 을 json 으로 고정해서 multipart 경계를 깨뜨린다 — 여기서는 fetch 를 직접 쓴다.
+    const response = await fetch("/api/ingest", { method: "POST", body: form });
+    if (!response.ok) {
+      let message = `요청에 실패했습니다 (${response.status})`;
+      try {
+        message = (await response.json()).error?.message || message;
+      } catch {}
+      throw new Error(message);
+    }
+    return response.json();
+  }
+  function renderIngestElapsed() {
+    const ui = ingestUI;
+    if (!ui || !ui.card.isConnected || !ingest) return;
+    ui.elapsed.textContent = `경과 ${elapsedText(Date.now() - (ingest.startedAt || Date.now()))}`;
+  }
+  function renderIngestProgress() {
+    renderIngestChip();
+    const ui = ingestUI;
+    if (!ui || !ui.card.isConnected) return; // 다른 화면에 있으면 칩만 갱신한다
+    const data = ingestStatus || {};
+    const index = stageIndex(data.stage);
+    ui.steps.forEach((step, i) => {
+      step.classList.toggle("done", index >= 0 && i < index);
+      step.classList.toggle("current", i === index);
+    });
+    const percent = percentOf(data.percent);
+    ui.fill.style.width = `${percent}%`;
+    ui.bar.setAttribute("aria-valuenow", String(percent));
+    ui.percent.textContent = `${percent}%`;
+    ui.detail.textContent =
+      data.detail || (index <= 0 ? "서버가 자료를 받는 중입니다…" : "진행 상황을 기다리는 중…");
+    ui.warn.hidden = !ingestFailures;
+    ui.warn.textContent = ingestFailures
+      ? `서버 응답이 없습니다 · 다시 시도하는 중 (${ingestFailures}/5)`
+      : "";
+    renderIngestElapsed();
+  }
+  function ingestView(courseFolder, folderName) {
+    ingestUI = null;
+    if (ingest) return ingestProgressView();
+    if (ingestError) return ingestErrorView();
+    return ingestForm(courseFolder, folderName);
+  }
+  function ingestProgressView() {
+    heading(
+      "AI 분석 중",
+      ingest.title || "강의 자료 분석",
+      "창을 닫거나 다른 노트를 봐도 분석은 계속됩니다. 전체 강의는 보통 10~20분 걸립니다.",
+    );
+    const card = el("div", "v-ingest-card");
+    const head = el("div", "v-ingest-card-head");
+    head.append(
+      el("strong", "", `${ingest.lecture || "새 강의"} · ${ingest.course || "과목 미지정"}`),
+    );
+    const elapsed = el("small", "v-ingest-elapsed", "경과 0초");
+    head.append(elapsed);
+    const steps = [];
+    const stepper = el("ol", "v-ingest-steps");
+    for (const [, label] of INGEST_STAGES) {
+      const step = el("li", "v-ingest-step");
+      step.append(el("span", "v-ingest-dot"), el("span", "v-ingest-step-label", label));
+      stepper.append(step);
+      steps.push(step);
+    }
+    const bar = el("div", "v-ingest-bar");
+    bar.setAttribute("role", "progressbar");
+    bar.setAttribute("aria-label", "분석 진행률");
+    bar.setAttribute("aria-valuemin", "0");
+    bar.setAttribute("aria-valuemax", "100");
+    bar.setAttribute("aria-valuenow", "0");
+    const fill = el("div", "v-ingest-bar-fill");
+    bar.append(fill);
+    const percent = el("span", "v-ingest-percent", "0%");
+    const detail = el("p", "v-ingest-detail", "진행 상황을 기다리는 중…");
+    detail.setAttribute("role", "status");
+    const warn = el("p", "v-ingest-warn", "");
+    warn.hidden = true;
+    card.append(head, stepper, bar, percent, detail, warn);
+    main.append(
+      card,
+      el(
+        "p",
+        "v-muted",
+        "노트가 만들어지는 대로 왼쪽 목록에 하나씩 나타납니다.",
+      ),
+      btn("← 노트 보러 가기", "v-secondary", () => show("note")),
+    );
+    ingestUI = { card, steps, bar, fill, percent, detail, warn, elapsed };
+    renderIngestProgress();
+  }
+  function ingestErrorView() {
+    heading("AI 분석", "분석에 실패했습니다", "입력한 내용은 그대로 두었습니다. 다시 시도해 보세요.");
+    main.append(
+      el("div", "v-ingest-error", `분석 실패: ${ingestError}`),
+      btn("다시 시도", "v-primary", () => {
+        ingestError = null;
+        show("upload");
+      }),
+    );
+  }
+  function ingestForm(courseFolder, folderName) {
+    heading(
+      "NEW LECTURE",
+      "강의 자료 불러오기",
+      "슬라이드 PDF와 함께, 타임스탬프 전사본(.md · .json) 또는 녹음·영상 파일을 올려 주세요.",
+    );
+    if (folderName) main.append(el("p", "v-muted", `추가할 폴더: ${folderName}`));
+    const form = el("form", "v-ingest-form");
+    form.onsubmit = (event) => event.preventDefault();
+    const title = el("input", "v-search-input");
+    title.placeholder = "강의 제목을 입력하세요";
+    title.setAttribute("aria-label", "강의 제목");
+    title.maxLength = 120;
+    title.value = ingestDraft.title || "";
+    // 과목은 자유 입력이 아니라 선택 + "새 과목 추가" 다.
+    const savedCourses = read(INGEST_COURSE_KEY, []);
+    const options = mergeCourses(
+      pages.filter((p) => p.type === "lecture").map((p) => p.course),
+      Array.isArray(savedCourses) ? savedCourses : [],
+    );
+    const preset = ingestDraft.course || courseFolder || "";
+    if (preset && !options.some((c) => c.toLowerCase() === preset.toLowerCase()))
+      options.splice(0, options.length, ...mergeCourses(options, [preset]));
+    const select = el("select", "v-ingest-select");
+    select.setAttribute("aria-label", "과목");
+    let previous = "";
+    const drawOptions = (selected) => {
+      select.replaceChildren();
+      const placeholder = el("option", "", "과목을 선택하세요");
+      placeholder.value = "";
+      placeholder.disabled = true;
+      select.append(placeholder);
+      for (const name of options) {
+        const option = el("option", "", name);
+        option.value = name;
+        select.append(option);
+      }
+      const adder = el("option", "", "＋ 새 과목 추가…");
+      adder.value = INGEST_NEW_COURSE;
+      select.append(adder);
+      select.value = options.some((c) => c === selected) ? selected : "";
+      previous = select.value;
+    };
+    const newRow = el("div", "v-ingest-newcourse");
+    const newName = el("input", "v-ingest-input");
+    newName.placeholder = "과목 이름";
+    newName.maxLength = 30;
+    newName.setAttribute("aria-label", "새 과목 이름");
+    const confirmCourse = btn("확인", "v-secondary", () => {
+      const name = newName.value.trim();
+      if (!name) {
+        newName.focus();
+        toast("과목 이름을 입력해 주세요.");
+        return;
+      }
+      const existing = options.find((c) => c.toLowerCase() === name.toLowerCase());
+      if (!existing) {
+        options.splice(0, options.length, ...mergeCourses(options, [name]));
+        const stored = read(INGEST_COURSE_KEY, []);
+        save(
+          INGEST_COURSE_KEY,
+          mergeCourses(Array.isArray(stored) ? stored : [], [name]),
+        );
+      }
+      drawOptions(existing || name);
+      newRow.hidden = true;
+      newName.value = "";
+    });
+    newRow.append(
+      newName,
+      confirmCourse,
+      btn("취소", "v-secondary", () => {
+        newRow.hidden = true;
+        newName.value = "";
+        select.value = previous;
+      }),
+    );
+    newName.onkeydown = (event) => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      confirmCourse.click();
+    };
+    select.onchange = () => {
+      if (select.value !== INGEST_NEW_COURSE) {
+        previous = select.value;
+        newRow.hidden = true;
+        return;
+      }
+      newRow.hidden = false;
+      newName.focus();
+    };
+    drawOptions(preset);
+    newRow.hidden = options.length > 0; // 과목이 하나도 없으면 입력칸을 펼쳐 둔다
+    const input = el("input");
+    input.type = "file";
+    input.multiple = true;
+    input.accept = INGEST_ACCEPT;
+    input.hidden = true;
+    const drop = btn("", "v-dropzone", () => input.click());
+    drop.append(
+      el("div", "v-upload-icon", "↥"),
+      el("h2", "", "파일을 여기에 놓아주세요"),
+      el("p", "", "또는 클릭하여 내 컴퓨터에서 선택"),
+      el("small", "", "PDF(슬라이드) + MD · JSON(전사본) 또는 MP4 · M4A · MP3 · WAV(녹음·영상)"),
+    );
+    const list = el("div", "v-upload-list");
+    const summary = el("p", "v-ingest-summary", "");
+    const hint = el("p", "v-ingest-hint", "");
+    const start = btn("AI 분석 시작  →", "v-primary", () => submit());
+    const draw = () => {
+      list.replaceChildren();
+      for (const file of state.files) {
+        const row = el("div", "v-upload-row v-ingest-row");
+        const kind = fileKind(file.name);
+        row.append(
+          el("span", `v-ingest-badge v-ingest-badge-${kind}`, INGEST_KIND_LABEL[kind]),
+          el("span", "v-ingest-name", file.name),
+          el("small", "", `${(file.size / 1024 / 1024).toFixed(2)} MB`),
+          btn("×", "v-icon-button", () => {
+            state.files = state.files.filter((f) => f !== file);
+            draw();
+          }),
+        );
+        list.append(row);
+      }
+      const total = state.files.reduce((sum, f) => sum + f.size, 0);
+      summary.textContent = state.files.length
+        ? `파일 ${state.files.length}개 · 합계 ${(total / 1024 / 1024).toFixed(1)} MB / 500 MB`
+        : "아직 선택한 파일이 없습니다.";
+      const problem = validateIngest(state.files);
+      hint.textContent = problem || "준비되었습니다. 분석을 시작할 수 있어요.";
+      hint.classList.toggle("bad", Boolean(problem));
+    };
+    const add = (files) => {
+      const accepted = [...files].filter((f) => INGEST_EXT.test(f.name));
+      if (accepted.length !== files.length)
+        toast("지원하지 않는 파일 형식은 제외했습니다.");
+      state.files = [...state.files, ...accepted].filter(
+        (f, i, arr) =>
+          arr.findIndex((a) => a.name === f.name && a.size === f.size) === i,
+      );
+      if (!title.value && accepted[0])
+        title.value = accepted[0].name.replace(/\.[^.]+$/, "");
+      draw();
+    };
+    input.onchange = () => add(input.files);
+    drop.ondragover = (e) => {
+      e.preventDefault();
+      drop.classList.add("dragging");
+    };
+    drop.ondragleave = () => drop.classList.remove("dragging");
+    drop.ondrop = (e) => {
+      e.preventDefault();
+      drop.classList.remove("dragging");
+      add(e.dataTransfer.files);
+    };
+    async function submit() {
+      const name = title.value.trim();
+      const course = select.value === INGEST_NEW_COURSE ? "" : select.value.trim();
+      if (!name) {
+        title.focus();
+        toast("강의 제목을 입력해 주세요.");
+        return;
+      }
+      if (!course) {
+        toast(
+          newRow.hidden
+            ? "과목을 선택해 주세요."
+            : "새 과목 이름을 입력하고 확인을 눌러 주세요.",
+        );
+        (newRow.hidden ? select : newName).focus();
+        return;
+      }
+      const problem = validateIngest(state.files);
+      if (problem) {
+        toast(problem);
+        return;
+      }
+      const controls = [start, title, select, drop, input];
+      for (const c of controls) c.disabled = true;
+      start.textContent = "업로드 중…";
+      ingestDraft = { title: name, course };
+      try {
+        const data = await postIngest(state.files, name, course);
+        if (!data || !data.job) throw new Error("서버가 작업 번호를 주지 않았습니다.");
+        ingestError = null;
+        ingestFailures = 0;
+        ingestStatus = { stage: "upload", percent: 0, detail: "" };
+        saveIngestJob({
+          job: data.job,
+          lecture: data.lecture || "",
+          title: name,
+          course,
+          startedAt: Date.now(),
+        });
+        startIngestPolling();
+        show("upload");
+      } catch (e) {
+        toast(e.message);
+        for (const c of controls) c.disabled = false;
+        start.textContent = "AI 분석 시작  →";
+      }
+    }
+    form.append(
+      el("label", "v-ingest-label", "강의 제목"),
+      title,
+      el("label", "v-ingest-label", "과목"),
+      select,
+      newRow,
+    );
+    main.append(
+      form,
+      input,
+      drop,
+      el("h3", "", "선택한 자료"),
+      list,
+      summary,
+      hint,
+      el(
+        "p",
+        "v-muted",
+        "업로드한 자료는 서버에서 음성 인식 → 구간 정렬 → 노트 정리를 거쳐 위키 노트가 됩니다. 전체 강의는 보통 10~20분 걸립니다.",
+      ),
+      start,
     );
     draw();
   }
@@ -1122,13 +1694,7 @@
     const chat = el("aside", "v-chat");
     chat.id = "chat-slot";
     root.append(nav, workspace, chat);
-    // 실제 위키로 만든 목록(tools/build_library.py, gitignore)이 있으면 그걸, 없으면 커밋된 견본을 쓴다.
-    fetch("/web/viewer/library.local.json")
-      .then((r) => (r.ok ? r : fetch("/web/viewer/library.json")))
-      .then((r) => {
-        if (!r.ok) throw new Error("노트 목록을 불러오지 못했습니다.");
-        return r.json();
-      })
+    loadPages()
       .then((data) => {
         pages.push(...data);
         // 서버에서 숨긴(status: grey) 페이지는 다른 브라우저에서도 숨김으로 보이고 휴지통에서 복원할 수 있어야 한다.
@@ -1144,6 +1710,8 @@
         show("note");
         const a = new URLSearchParams(location.search).get("anchor");
         if (a) openAnchor(a);
+        // 새로고침·화면 이동으로 잃지 않도록, 저장된 분석 작업이 있으면 백그라운드에서 이어 받는다.
+        resumeIngest();
       })
       .catch((e) => {
         toast(e.message);

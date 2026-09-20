@@ -49,7 +49,20 @@ def _system_prompt(role_file):
     return common + "\n\n---\n\n" + role
 
 
-def run_compile_topic(lecture, s_from, s_to, run, on_progress=_noop):
+def lecture_note_path(lecture, title=""):
+    """강의 1편 = 노트 1개. 경로는 코드가 정한다(에이전트가 주제마다 제목을 새로 지어 파일이 쪼개지던 문제, 2026-09-20).
+    같은 강의의 기존 노트가 하나 있으면 그 파일을 계속 쓴다(제목이 바뀌어도 새 파일을 만들지 않는다)."""
+    import re as _re
+    d = T.ROOT / "wiki" / "lectures" if hasattr(T, "ROOT") else ROOT / "wiki" / "lectures"
+    existing = sorted(d.glob(f"{lecture}_*.md")) if d.is_dir() else []
+    if len(existing) == 1:
+        return f"wiki/lectures/{existing[0].name}"
+    name = _re.sub(r'[/\\:*?"<>|]', "", (title or "강의 노트").strip())
+    name = _re.sub(r"\s+", "_", name) or "강의_노트"
+    return f"wiki/lectures/{lecture}_{name}.md"
+
+
+def run_compile_topic(lecture, s_from, s_to, run, on_progress=_noop, title="", course=""):
     """③ 한 주제(슬라이드 범위)를 컴파일한다. write_page 의 deny→allow 를 관리.
     반환: {"topic", "pages":[{path, attempts, verdict}], "status": "done|skipped|llm_error"}"""
     agent = "compile"
@@ -62,10 +75,16 @@ def run_compile_topic(lecture, s_from, s_to, run, on_progress=_noop):
         on_progress("compile", 0, f"{topic}: episodic 없음")
         return {"topic": topic, "pages": [], "status": "skipped"}
 
+    note_path = lecture_note_path(lecture, title)
+    note_title = f"{lecture}. {title}" if title else f"{lecture}. 강의 노트"
     user = (f"강의 {lecture} 의 슬라이드 {s_from}~{s_to} 를 컴파일한다. "
             f"episodic 은 read_episodic 으로 읽어라(lecture={lecture}, s_from={s_from}, s_to={s_to}). "
-            f"강의 노트 wiki/lectures/{lecture}_<제목>.md 의 '## N.' 주제 하나와, 필요하면 "
-            f"개념 페이지 wiki/concepts/<slug>.md 를 write_page 로 써라. "
+            f"**이 강의의 노트 파일은 정확히 `{note_path}` 하나다. 다른 이름의 강의 노트 파일을 만들지 마라.** "
+            f"먼저 read_page 로 그 파일을 읽어라. 있으면: 기존 내용(프론트매터·기존 '## N.' 주제들)을 한 글자도 바꾸지 말고 "
+            f"그대로 둔 채, 맨 끝에 다음 번호의 '## N.' 주제 하나를 **추가한 전체 파일**을 write_page 로 써라. "
+            f"없으면: 프론트매터(title: \"{note_title}\" — 반드시 큰따옴표, type: lecture, sources: [{lecture}], status: draft)와 "
+            f"'# {note_title}', '> 소스: …'·'> 읽는 법: …' 두 줄, 그리고 '## 1.' 주제로 새로 만든다. "
+            f"필요하면 개념 페이지 wiki/concepts/<slug>.md 도 write_page 로 써라(이미 있으면 새로 만들지 말고 그 페이지에 추가). "
             f"앵커는 episodic 에 적힌 것만 옮긴다.")
     messages = [{"role": "user", "content": user}]
     specs = T.specs_for(sorted(allowed))

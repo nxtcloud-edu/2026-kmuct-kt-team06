@@ -3,6 +3,8 @@ inclusion: always
 ---
 # 팀 상황판 규칙 (board 스킬)
 
+> **명령 경로** — 맥/리눅스: `~/.kiro/skills/board/board.sh <명령>` · **윈도우**: `powershell -NoProfile -ExecutionPolicy Bypass -File $HOME\.kiro\skills\board\board.ps1 <명령>` (인자는 같다). 아래에서 `board.sh` 라고 쓴 것은 윈도우에서는 전부 이 `board.ps1` 호출이다.
+
 이 저장소는 노트북 4대의 Kiro가 레인을 나눠 동시에 작업한다. 서로의 대화는 안 보인다. 공유되는 것은 git과 상황판뿐이다.
 
 1. 태스크를 시작하기 전에 `~/.kiro/skills/board/board.sh read`. 첫 줄이 🛑 STOP 이면 쓰기 작업을 시작하지 말고 `board.sh wait`.
@@ -19,5 +21,5 @@ inclusion: always
 5. 내 레인 디렉터리 밖은 고치지 않는다. 필요하면 `board.sh ask`.
 6. **사람이 지금 이 Kiro를 직접 몰고 있을 때**(프론트처럼 대화로 고쳐 나가는 레인): 내 레인 안의 결정(디자인·문구·컴포넌트 구조)은 상황판에 올리지 말고 앞에 있는 사람에게 바로 묻는다. `board.sh human`은 레인 밖에 영향이 가는 것(계약·스키마·범위·배포)에만 쓴다. 보고는 커밋만 하면 된다 — 턴이 끝날 때 훅이 새 커밋을 상황판에 자동으로 올린다.
 7. 내 목록을 다 끝냈으면 `board.sh done "목록 완료, 지시 대기"` 후 `board.sh idle`(새 지시가 올 때까지 대기).
-8. `.kiro/steering/`·`.kiro/hooks/`는 팀 공용 설정이라 저장소에 커밋되는 파일이다(커밋 제안에서 빼지 않는다).
+8. `.kiro/steering/`·`.kiro/specs/`는 팀 공용이라 커밋한다. **`.kiro/hooks/board-gate.json`은 OS마다 내용이 달라 커밋하지 않는다**(.gitignore, 각자 setup이 설치).
 9. 설계 원칙: 모델에게는 의미 판단(선택지 중 하나 / 참·거짓 / 정도)만 묻고, PASS·RETRY·반려 같은 정책과 점수 합산은 코드(훅·검증기)가 한다.

@@ -15,8 +15,8 @@
 
 | 레인 | 담당 | 소유 |
 |---|---|---|
-| `front-dongwook` | 동욱 | `web/viewer/` |
-| `front-minsu` | 민수 | `web/notes/` |
+| `front-dongwook` | 동욱 | `web/viewer/` | -> 현재 '민수'와 프론트 통합 개발 중.
+| `front-minsu` | 민수 | `web/notes/` | -> 현재 '동욱'과 프론트 통합 개발 중.
 | `back-wooseok` | 우석 | `api/` |
 | `back-kyuchan` | 규찬(팀장) | `pipeline/` `hooks/` `tools/` `prompts/` `skills/` `mock/` |
 

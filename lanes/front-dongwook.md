@@ -23,9 +23,11 @@ python3 tools/devserve.py 8000
 
 ### T2 (0:30–1:00) 미니 플레이어 + 점프
 - 오른쪽 위 고정 미니 플레이어 `#v-mini` (없으면 만든다). 칩 클릭 → `GET /api/source?anchor=` (목 `/mock/source.json`) → `video.kind` 가 mp4면 `<video>.currentTime=t`, youtube면 IFrame API `seekTo(t,true)` + 재생. `frame` 이 있으면 플레이어 아래 썸네일로
+- **드래그 → `원본 보기`**(CONTRACT §7.2b): `selectionchange`/`mouseup` 에서 선택 영역 위에 작은 버튼 `#v-selbtn` 을 띄우고, 클릭하면 그 문단의 첫 `.v-anchor` 로 점프. 칩 없는 문단이면 안 띄운다
+- 점프 시 `slide` 가 있으면 슬라이드 이미지, 없으면 `frame`. `video.kind:"audio"` 면 `<audio>` + 슬라이드 크게
 - `anchor-open` 발사. `anchor-request` 수신(민수 채팅 패널이 쏜다) → 같은 점프
 - 페이지를 옮겨도 미니 플레이어는 **살아 있어야** 한다(재생 끊기지 않게 body 직속)
-- **완료 조건**: 칩 3개를 차례로 눌러 영상이 세 번 점프한다.
+- **완료 조건**: 칩 3개 + **드래그 1번**으로 영상(또는 녹음)이 점프하고 슬라이드가 같이 뜬다.
 
 ### T3 (1:00–1:30) split + 구간 끝 자동 정지
 - 미니 플레이어 클릭 → `body.classList.add('v-split')`: Quartz `.center` 를 좁히고 오른쪽에 `#v-pane`(위=플레이어·프레임, 아래=`<aside id="note-slot">`). 접기 버튼

@@ -75,7 +75,7 @@
 
 | 메서드 | 경로 | 응답 |
 |---|---|---|
-| GET | `/api/segments/{lecture}` | `{lecture, video:{kind:"mp4"\|"youtube", src}, segments:[...§4.1]}` |
+| GET | `/api/segments/{lecture}` | `{lecture, video:{kind:"mp4"\|"youtube"\|"audio", src}, segments:[...§4.1]}` |
 | GET | `/api/source?anchor=L3%23s7%40t%3D340` | `{lecture:"L3", k, s, t_start, t_end, frame:"/raw/L3/seg_7_final.jpg"\|null, slide:"..."\|null, video:{kind,src}, ocr, exists:true}` · 없으면 404 `SOURCE_NOT_FOUND` |
 | GET | `/api/notes/{lecture}` | `[{k, s, text, anchor, frame, updated}]` |
 | POST | `/api/notes` | 요청 `{lecture:"L3", k:7, text:"..."}` → `{ok:true, path, anchor, frame}` · WritePolicy 거부 시 **422** `{"error":{"code":"WRITE_REJECTED","message":"<훅이 준 이유 그대로>"}}` |
@@ -150,6 +150,12 @@ POST는 목이 없다 → `USE_MOCK` 이면 필기는 `localStorage`, QA는 `moc
   `<a class="internal ..." href="../lectures/l3#s5t330">L3 > s5@t=330</a>`
   → `viewer.js` 가 `nav` 마다 본문의 `a.internal` 중 **텍스트가 `^L(\d+) > s(\d+)@t=(\d+)$`** 인 것을 찾아 `<button class="v-anchor" data-anchor="L3#s5@t=330">` 칩으로 **바꿔치기**한다. 이게 앵커의 DOM 규약이다.
 - 페이지 `status` 배지(draft/grey)는 Quartz가 안 그린다 → P2. 시간이 남으면 viewer 가 얹는다.
+
+### 7.2b 원본으로 가는 두 가지 길 (둘 다 viewer)
+1. **앵커 칩 클릭** — 문단 끝의 칩.
+2. **드래그(텍스트 선택) → 떠오르는 `원본 보기` 버튼** — 선택한 글자가 속한 문단(`p`, `li`)의 **첫 앵커 칩**으로 점프한다. 선택이 여러 문단에 걸치면 시작 문단 기준. 그 문단에 칩이 없으면 버튼을 안 띄운다(근거 없는 문장이라는 뜻). LLM을 부르지 않는다 — 순수 DOM.
+
+점프하면 **한 번에 셋이 뜬다**: ① 영상·녹음이 그 초로 이동 ② `slide` 가 있으면 그 PPT 슬라이드 이미지(`/raw/L{n}/slides/s{s}.png`) ③ 없으면 `frame`. **녹음만 있는 강의**(`video.kind:"audio"`)는 `<audio>` 플레이어 + 슬라이드 이미지를 크게.
 
 ### 7.3 슬롯 (동욱이 만들고, 민수가 채운다)
 `viewer.js` 가 `nav` 때 `document.body` 에 없으면 만든다. **안쪽 DOM은 민수 것.**

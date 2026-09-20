@@ -15,6 +15,7 @@
   }
   window.addEventListener("segment-boundary", async ({ detail }) => {
     init();
+    if (!slot) return;
     if (active && editor)
       drafts.set(`${active.lecture}:${active.k}`, editor.value);
     active = detail;

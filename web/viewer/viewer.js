@@ -104,42 +104,8 @@
     return n;
   }
   app.anchor = anchor;
-  function conceptPreview(target, page) {
-    const showPreview = () => {
-      document.getElementById("v-concept-preview")?.remove();
-      const popup = el("div", "v-concept-preview");
-      popup.id = "v-concept-preview";
-      popup.setAttribute("role", "tooltip");
-      popup.append(
-        el("small", "", "WIKI · 개념 미리보기"),
-        el("strong", "", page.title),
-        el(
-          "p",
-          "",
-          page.body
-            .replace(/^---[\s\S]*?---/, "")
-            .replace(/\[\[[^\]]+\]\]/g, "")
-            .replace(/[#*]/g, "")
-            .replace(/Current|History/g, "")
-            .trim()
-            .slice(0, 200),
-        ),
-      );
-      const rect = target.getBoundingClientRect();
-      popup.style.left = `${Math.max(12, Math.min(rect.left, innerWidth - 312))}px`;
-      popup.style.top = `${Math.min(rect.bottom + 10, innerHeight - 220)}px`;
-      root.append(popup);
-      target.setAttribute("aria-describedby", popup.id);
-    };
-    const hidePreview = () => {
-      document.getElementById("v-concept-preview")?.remove();
-      target.removeAttribute("aria-describedby");
-    };
-    target.addEventListener("mouseenter", showPreview);
-    target.addEventListener("focus", showPreview);
-    target.addEventListener("mouseleave", hidePreview);
-    target.addEventListener("blur", hidePreview);
-    target.addEventListener("click", hidePreview);
+  function conceptPreview(target, page, kind = "wiki") {
+    return;
   }
   function inline(parent, text) {
     const regex =
@@ -153,7 +119,6 @@
           show("note", m[1]),
         );
         const preview = pages.find((p) => p.slug === m[1]);
-        if (preview) conceptPreview(concept, preview);
         parent.append(concept);
       } else if (m[4]) {
         const link = el("a", "v-concept", m[4]);
@@ -162,6 +127,7 @@
           link.target = "_blank";
           link.rel = "noopener noreferrer";
         } else link.title = "샘플 영상 · 실제 영상은 아직 등록되지 않았습니다";
+
         parent.append(link);
       } else parent.append(el("strong", "", m[3]));
       last = m.index + m[0].length;
@@ -289,6 +255,62 @@
         "내 강의의 근거를 확인하고, 더 정확한 노트로 만들어 보세요.",
       );
 
+      const board = el("section", "v-dashboard-board");
+      const left = el("div", "v-dashboard-panel v-dashboard-panel-left");
+      const leftHeader = el("div", "v-doodle-header", "대시보드");
+      const leftList = el("div", "v-doodle-list");
+      ["검색", "교수님 발언", "AI 정보", "레퍼런스", "Inbox", "ABC"].forEach((label) => {
+        const item = el("div", "v-doodle-item", label);
+        item.innerHTML = `<span>${label}</span>`;
+        leftList.append(item);
+      });
+      left.append(leftHeader, leftList);
+
+      const center = el("div", "v-dashboard-panel v-dashboard-panel-center");
+      const centerHeader = el("div", "v-doodle-header-lite", "Overall");
+      const metrics = el("div", "v-doodle-metrics");
+      [
+        { pct: "74%", label: "정확도" },
+        { pct: "65%", label: "검증" },
+        { pct: "80%", label: "완성도" },
+      ].forEach(({ pct, label }) => {
+        const meter = el("div", "v-doodle-meter");
+        const ring = el("div", "v-doodle-ring");
+        ring.style.setProperty("--percent", pct);
+        ring.append(el("strong", "", pct));
+        meter.append(ring, el("span", "v-doodle-meter-label", label));
+        metrics.append(meter);
+      });
+      center.append(centerHeader, metrics);
+
+      const right = el("div", "v-dashboard-panel v-dashboard-panel-right");
+      const rightHeader = el("div", "v-doodle-header-lite", "Agent");
+      const agentStack = el("div", "v-doodle-agent-stack");
+      ["검색", "검색", "근거", "검증", "쓰다"].forEach((text, index) => {
+        const chip = el("div", "v-doodle-chip", text);
+        if (index === 2) chip.classList.add("v-doodle-chip-strong");
+        agentStack.append(chip);
+      });
+      const agentCard = el("div", "v-doodle-agent-card");
+      agentCard.append(
+        el("span", "v-doodle-agent-line", "for 16s"),
+        el("span", "v-doodle-agent-line", "로그"),
+      );
+      right.append(rightHeader, agentStack, agentCard);
+
+      const prompt = el("div", "v-dashboard-prompt");
+      prompt.append(
+        el("div", "v-dashboard-prompt-title", "이 부분이 핵심이네요!"),
+        el("div", "v-dashboard-prompt-actions", ""),
+      );
+      const actions = prompt.querySelector(".v-dashboard-prompt-actions");
+      actions.append(
+        el("button", "v-doodle-button", "둘기"),
+        el("button", "v-doodle-button v-doodle-button-dark", "수정"),
+      );
+
+      board.append(left, center, right);
+      main.append(board, prompt);
       emit("dashboard-open", { main });
       return;
     }
@@ -892,15 +914,31 @@
     };
     const mh = el("div");
     mh.id = "v-media";
-    const toggle = el("label", "v-auto-pause");
-    const cb = el("input");
-    cb.type = "checkbox";
-    cb.checked = true;
-    cb.id = "v-auto-pause";
-    toggle.append(cb, document.createTextNode("구간 끝에서 멈추고 필기하기"));
-    const note = el("aside");
-    note.id = "note-slot";
-    pane.append(ph, frame, mh, toggle, note);
+    pane.append(ph, frame, mh);
+    let dragState = null;
+    ph.addEventListener("pointerdown", (event) => {
+      if (event.target.closest("button")) return;
+      dragState = {
+        x: event.clientX,
+        y: event.clientY,
+        left: pane.offsetLeft,
+        top: pane.offsetTop,
+      };
+      pane.classList.add("v-player-dragging");
+      ph.setPointerCapture?.(event.pointerId);
+    });
+    window.addEventListener("pointermove", (event) => {
+      if (!dragState) return;
+      const dx = event.clientX - dragState.x;
+      const dy = event.clientY - dragState.y;
+      pane.style.left = `${Math.min(Math.max(16, dragState.left + dx), innerWidth - pane.offsetWidth - 16)}px`;
+      pane.style.top = `${Math.min(Math.max(16, dragState.top + dy), innerHeight - pane.offsetHeight - 16)}px`;
+      pane.style.right = "auto";
+    });
+    window.addEventListener("pointerup", () => {
+      dragState = null;
+      pane.classList.remove("v-player-dragging");
+    });
     const chat = el("aside", "v-chat");
     chat.id = "chat-slot";
     root.append(nav, workspace, pane, chat);
@@ -911,11 +949,7 @@
       })
       .then((data) => {
         pages.push(...data);
-        show(
-          new URLSearchParams(location.search).get("view") === "dashboard"
-            ? "dashboard"
-            : "note",
-        );
+        show("note");
         const a = new URLSearchParams(location.search).get("anchor");
         if (a) openAnchor(a);
       })

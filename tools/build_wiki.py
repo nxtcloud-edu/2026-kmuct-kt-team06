@@ -73,6 +73,11 @@ def build_once():
         line = next((l for l in out.splitlines() if "Emitted" in l or "input files" in l), out.strip()[:200])
         ok = r.returncode == 0
         print(("✅ " if ok else "❌ ") + line, file=sys.stderr)
+        try:  # 프론트 뷰어가 읽는 노트 목록도 같은 시점에 다시 만든다(실패해도 빌드는 성공)
+            subprocess.run([sys.executable, str(Path(__file__).with_name("build_library.py"))],
+                           cwd=Path(__file__).resolve().parent.parent, capture_output=True, text=True, timeout=30)
+        except Exception:
+            pass
         return ok
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

@@ -878,7 +878,9 @@
     const chat = el("aside", "v-chat");
     chat.id = "chat-slot";
     root.append(nav, workspace, pane, chat);
-    fetch("/web/viewer/library.json")
+    // 실제 위키로 만든 목록(tools/build_library.py, gitignore)이 있으면 그걸, 없으면 커밋된 견본을 쓴다.
+    fetch("/web/viewer/library.local.json")
+      .then((r) => (r.ok ? r : fetch("/web/viewer/library.json")))
       .then((r) => {
         if (!r.ok) throw new Error("노트 목록을 불러오지 못했습니다.");
         return r.json();

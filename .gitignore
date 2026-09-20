@@ -37,3 +37,6 @@ wiki/signals/coverage.md
 # OS마다 내용이 다른 Kiro 훅 (맥 .sh / 윈도우 .ps1) — 각자 kirothon-board setup 이 설치한다
 .kiro/hooks/board-gate.json
 .prompt-backup-ko/
+
+# 실제 위키로 만든 뷰어 목록(실강의 산출물) — tools/build_library.py 가 생성
+web/viewer/library.local.json

@@ -15,6 +15,7 @@
     429/5xx 면 나머지 공급자로 **1회** 폴백하고, 실제 쓴 공급자의 모델을 결과 model 에 적는다.
 
 키는 환경변수로만: OPENAI_API_KEY · ANTHROPIC_API_KEY · GEMINI_API_KEY.
+(OpenAI 호환 엔드포인트는 OPENAI_BASE_URL 로 바꿀 수 있다 — x.ai 등 검증·프록시용)
 새 패키지 금지 — urllib(표준 라이브러리)만. 코드·로그·응답에 키를 넣지 않는다.
 
 messages: [{"role":"user"|"assistant"|"tool", "content":str, ...}]
@@ -28,14 +29,52 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from pathlib import Path
 
-TIMEOUT = 120
+# .env 의 옛 이름 → 표준 환경변수 이름 (값은 같다, #48)
+_ALIASES = {
+    "Open_AI": "OPENAI_API_KEY", "OPEN_AI": "OPENAI_API_KEY",
+    "Claude_AI": "ANTHROPIC_API_KEY", "CLAUDE_AI": "ANTHROPIC_API_KEY",
+    "Gemini_AI": "GEMINI_API_KEY", "GEMINI_AI": "GEMINI_API_KEY",
+    "X_AI": "XAI_API_KEY",
+}
 
-# 공급자별 기본 모델 (환경변수 LLM_STRONG/LLM_FAST 가 우선)
+
+def _load_dotenv():
+    """저장소 루트 .env 를 stdlib 만으로 읽어 os.environ 에 **없는 키만** 채운다(#48).
+    KEY=VALUE, # 주석·빈 줄·따옴표 처리. 옛 이름은 표준 이름으로 매핑.
+    값은 절대 로그·예외 메시지에 찍지 않는다. api.server 도 pipeline.llm 을 import 하니 같이 해결된다.
+    """
+    env = Path(__file__).resolve().parent.parent / ".env"
+    if not env.is_file():
+        return
+    try:
+        for line in env.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, val = line.partition("=")
+            key, val = key.strip(), val.strip().strip('"').strip("'")
+            if not key:
+                continue
+            for name in {key, _ALIASES.get(key, key)}:
+                if name and name not in os.environ:
+                    os.environ[name] = val
+    except OSError:
+        pass  # .env 를 못 읽어도 (환경변수로 직접 준 경우) 계속 간다
+
+
+_load_dotenv()
+
+TIMEOUT = int(os.environ.get("LLM_TIMEOUT", "120"))
+
+# 공급자별 기본 모델. LLM_STRONG/LLM_FAST 환경변수가 있으면 그게 우선.
+# fable 실측(#48/#49): openai gpt-5-mini·anthropic claude-haiku-4-5 정상, gemini 는 3.6 계열.
+# 모델 이름은 자주 죽으므로 배포 환경에서는 LLM_STRONG/LLM_FAST 로 못박는 것을 권장한다.
 _DEFAULTS = {
-    "openai": {"strong": "gpt-4o", "fast": "gpt-4o-mini"},
-    "anthropic": {"strong": "claude-3-5-sonnet-latest", "fast": "claude-3-5-haiku-latest"},
-    "gemini": {"strong": "gemini-1.5-pro", "fast": "gemini-1.5-flash"},
+    "openai": {"strong": "gpt-5", "fast": "gpt-5-mini"},
+    "anthropic": {"strong": "claude-sonnet-5", "fast": "claude-haiku-4-5"},
+    "gemini": {"strong": "gemini-3.6-pro", "fast": "gemini-3.6-flash"},
 }
 _KEY_ENV = {"openai": "OPENAI_API_KEY", "anthropic": "ANTHROPIC_API_KEY", "gemini": "GEMINI_API_KEY"}
 
@@ -88,13 +127,42 @@ def _post(url: str, headers: dict, payload: dict) -> dict:
 
 # ---- 공급자별 호출: (system, messages, tools, model) -> {text, tool_calls} ----
 
+def _to_openai_messages(messages):
+    """내부 표현 → OpenAI chat 형식.
+    - assistant 의 tool_calls {id, name, arguments(dict)} → {id, type:'function', function:{name, arguments: JSON문자열}}
+    - tool 결과 {role:'tool', tool_call_id, content} → 그대로 (OpenAI 도 같은 형식)
+    OpenAI 는 assistant.tool_calls[].type 과 function.arguments(문자열)를 요구한다(버그 ②: 미변환 시 HTTP 400)."""
+    out = []
+    for m in messages:
+        role = m.get("role")
+        if role == "assistant" and m.get("tool_calls"):
+            tcs = []
+            for c in m["tool_calls"]:
+                args = c.get("arguments", {})
+                tcs.append({
+                    "id": c.get("id", ""),
+                    "type": "function",
+                    "function": {"name": c["name"],
+                                 "arguments": args if isinstance(args, str) else json.dumps(args, ensure_ascii=False)},
+                })
+            # content 는 tool_calls 와 함께 올 때 null 허용
+            out.append({"role": "assistant", "content": m.get("content") or None, "tool_calls": tcs})
+        elif role == "tool":
+            out.append({"role": "tool", "tool_call_id": m.get("tool_call_id", ""),
+                        "content": m.get("content", "")})
+        else:
+            out.append({"role": role, "content": m.get("content", "")})
+    return out
+
+
 def _call_openai(system, messages, tools, model):
     key = os.environ["OPENAI_API_KEY"]
-    msgs = ([{"role": "system", "content": system}] if system else []) + list(messages)
+    base = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
+    msgs = ([{"role": "system", "content": system}] if system else []) + _to_openai_messages(messages)
     payload = {"model": model, "messages": msgs}
     if tools:
         payload["tools"] = [{"type": "function", "function": t} for t in tools]
-    d = _post("https://api.openai.com/v1/chat/completions",
+    d = _post(f"{base}/chat/completions",
               {"Authorization": f"Bearer {key}"}, payload)
     msg = d["choices"][0]["message"]
     calls = []
@@ -217,7 +285,10 @@ def complete(role: str, system: str, messages: list, tools=None) -> dict:
         except LLMError as e:
             errors.append(f"{provider}({model}): {e}")
             continue
-    raise LLMError("모든 공급자 실패 — " + " · ".join(errors))
+    hint = ("\n힌트: 404/400 이면 모델 이름이 죽은 것이다. "
+            "LLM_STRONG / LLM_FAST 환경변수로 현재 살아 있는 모델 id 를 못박아라 "
+            "(예: LLM_PROVIDER=openai LLM_STRONG=gpt-5.5 LLM_FAST=gpt-5-mini).")
+    raise LLMError("모든 공급자 실패 — " + " · ".join(errors) + hint)
 
 
 if __name__ == "__main__":

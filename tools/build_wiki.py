@@ -14,6 +14,7 @@
 Quartz 의 --watch 는 -d 디렉터리(임시 복사본)를 감시하므로 원본 변경을 못 본다.
 그래서 여기서는 원본 wiki 의 mtime 을 폴링해 바뀌면 임시 복사 후 재빌드한다(계약 §5.3 "몇 초 뒤 화면에 나온다").
 """
+import re
 import shutil
 import subprocess
 import sys
@@ -27,11 +28,37 @@ SITE = ROOT / "site"
 PUBLIC = ROOT / "public"
 
 
+def _is_grey(md_path: Path) -> bool:
+    """프론트매터가 status: grey 인가(숨김 대상, #45). 프론트매터 블록 안만 본다."""
+    try:
+        text = md_path.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    if not text.startswith("---"):
+        return False
+    fm = text.split("---", 2)[1] if text.count("---") >= 2 else ""
+    return re.search(r"^status:\s*grey\s*$", fm, re.M) is not None
+
+
 def _snapshot(src: Path, dst: Path):
-    """wiki 를 gitignore 없는 임시 경로로 복사. .history.jsonl 등 점 파일은 제외."""
+    """wiki 를 gitignore 없는 임시 경로로 복사. .history.jsonl 등 점 파일은 제외.
+    status: grey 인 concepts/·lectures/ 페이지는 복사하지 않는다(#45) = Quartz 빌드에서 빠짐 = 화면에서 숨김.
+    원본 파일과 History 는 그대로 둔다(삭제가 아니라 숨김)."""
     if dst.exists():
         shutil.rmtree(dst)
     shutil.copytree(src, dst, ignore=shutil.ignore_patterns(".*"))
+    # 복사본에서 grey 페이지만 제거(원본은 안 건드린다)
+    hidden = 0
+    for sub in ("concepts", "lectures"):
+        d = dst / sub
+        if not d.is_dir():
+            continue
+        for p in d.glob("*.md"):
+            if _is_grey(p):
+                p.unlink()
+                hidden += 1
+    if hidden:
+        print(f"  (숨김: status:grey {hidden}개 페이지 빌드 제외)", file=sys.stderr)
 
 
 def build_once():

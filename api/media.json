@@ -1,6 +1,16 @@
 {
+  "L1": {
+    "video": {
+      "kind": "audio",
+      "src": "/raw/L1/L1.mp4"
+    },
+    "date": "2026-09-13"
+  },
   "L3": {
-    "video": { "kind": "mp4", "src": "/raw/L3/L3.mp4" },
+    "video": {
+      "kind": "mp4",
+      "src": "/raw/L3/L3.mp4"
+    },
     "date": "2026-09-15"
   },
   "professorChannel": "UC_replace_with_real_channel_id"

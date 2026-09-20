@@ -10,7 +10,7 @@
 | 6 | **FrameGuard** | ① 종료 | 차단 | ✅ 실측 | `frame_guard.py` — 구간표 스키마·겹침·빈틈·프레임 또는 슬라이드 PNG 존재. 통과 못 하면 ②로 못 간다 |
 | 7 | CriticDispatch | PostToolUse(write_page, agent=compile) | 격리 | ⬜ | draft 페이지를 ④ 큐에 |
 | 8 | **AuditLog** | 모든 판정 | 격리 | ✅ 실측 | `wiki/.history.jsonl` — allow/deny, rule, reason, attempt, run, anchors, quotes, 전후 본문·해시. 집계 `tools/hook_metrics.py` |
-| 9 | CoverageCheck | ③ 종료 | 격리 | ⬜ | signals 항목 grep → `signals/coverage.md` |
+| 9 | CoverageCheck | ③ 종료 | 격리 | ✅ | `tools/coverage.py` — signals 항목 grep → `signals/coverage.md` + covered/total. 필기만 달린 구간도 목록에 |
 
 차단 = 거부 사유가 모델에게 돌아가 그 부분만 다시 쓴다. 격리 = 실패해도 로그만 남기고 계속. **default deny.**
 오케스트레이터는 훅을 부를 때 `agent`, `attempt`(1부터), `run`(실행 id) 을 실어 보낸다 → 대시보드의 "거부 후 재작성 통과" 숫자가 여기서 나온다.
@@ -25,7 +25,7 @@
 | ④b 인용 대조 | **코드** | 🗣 인용 ↔ 그 구간 전사본 문자 유사도 |
 | ⑤ 링커·인덱스 | **코드** | 본문의 `[[concepts/…]]` 를 모아 `links:` 와 `index.md` 갱신 |
 | ⑦ 질의응답 | 모델(fast) | grep_wiki, read_page, get_source → QAStop |
-| 발언 검색 · 검토함 · 지표 | **코드** | `quote_search.py` · review 집계 · `hook_metrics.py` |
+| 발언 검색 · 검토함 · 지표 | **코드** | `quote_search.py` · review 집계 · `hook_metrics.py` · `coverage.py` · `stats.py`(=/api/stats payload) |
 
 ## 허용 툴 Set (AgentGuard)
 - align:   append_episodic

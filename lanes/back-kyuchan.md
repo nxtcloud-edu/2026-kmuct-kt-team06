@@ -12,7 +12,7 @@
 ## 30분 단위
 
 ### T0 (도착 직후, 0:00 전) — 남을 막는 것부터
-1. EC2 m5.large 접속 확인 → Node ≥22 · `cd site && npm ci` · `npx quartz build -d ../wiki -o ../public --watch` 를 tmux 에 띄운다 · 키 4종을 서버 환경변수로(**Bedrock 없음**)
+1. EC2 m5.large 접속 확인 → Node ≥22 · `cd site && npm ci` · **`python3 tools/build_wiki.py --watch` 를 tmux 에 띄운다**(quartz build 직접 X — .gitignore 가 실데이터 wiki 를 빼먹는다, 보드 #22/#28. 래퍼가 gitignore 없는 임시경로로 복사 후 빌드) · 키 4종을 서버 환경변수로(**Bedrock 없음**)
 2. `mock/` 7개 파일 커밋·푸시 → **프론트 둘이 0분부터 출발한다**
 3. `wiki/` 샘플 페이지 3개 커밋 → **우석이 0분부터 출발한다**
 4. 레인 4개에 `board.sh order` 전송

@@ -74,6 +74,7 @@ def run_compile_topic(lecture, s_from, s_to, run, on_progress=_noop):
     attempts = {}
     pages = []
     blocked_paths = set()
+    nudged = False  # 툴콜 없이 끝나려 할 때 write_page 를 한 번만 재촉
 
     for turn in range(MAX_TURNS[agent]):
         try:
@@ -84,7 +85,17 @@ def run_compile_topic(lecture, s_from, s_to, run, on_progress=_noop):
 
         calls = r.get("tool_calls") or []
         if not calls:
-            # 툴콜이 없으면 종료(모델이 NONE 이거나 설명만)
+            # 툴콜 없이 텍스트만 → 아직 이 주제에서 write_page 를 한 번도 안 했으면 한 번 재촉.
+            # (claude 처럼 read 후 다음 턴에 write 하는 모델이 조기 종료되는 것을 막는다.)
+            wrote_any = any(p["verdict"] == "allow" for p in pages)
+            if not wrote_any and not nudged:
+                nudged = True
+                messages.append({"role": "assistant", "content": r.get("text", "")})
+                messages.append({"role": "user", "content":
+                    "아직 write_page 를 부르지 않았다. 지금까지 읽은 episodic 을 근거로 "
+                    "강의 노트(wiki/lectures/) 와 개념 페이지(wiki/concepts/) 를 write_page 로 저장하라. "
+                    "앵커는 episodic 에 있는 것만 쓴다. 저장할 게 없으면 NONE."})
+                continue
             break
 
         # assistant 턴을 대화에 기록

@@ -30,6 +30,7 @@ def source_exists(L, s, t):
     return _exists(root, s, t)
 
 YOUTUBE = re.compile(r"https?://(?:www\.)?(?:youtube\.com|youtu\.be)/\S+")
+EXTERNAL = re.compile(r"https?://\S+")
 FAKE_ANCHOR = re.compile(r"\[\[(?:note|signal):")
 
 def check_lecture(content):
@@ -57,8 +58,12 @@ def check_lecture(content):
             return f"🗣 quote without anchor: '{joined.strip()[:60]}'"
         if YOUTUBE.search(joined) and "[!youtube]" not in joined:
             return "youtube link outside '> [!youtube]' callout"
+        if EXTERNAL.search(YOUTUBE.sub("", joined)) and "[!ref]" not in joined:
+            return "external link outside '> [!ref]' callout"
         block = []
     outside = "\n".join(l for l in text.splitlines() if not l.startswith(">"))
+    if EXTERNAL.search(YOUTUBE.sub("", outside)):
+        return "external link outside '> [!ref]' callout (레퍼런스 원문은 정본이 아니다)"
     if YOUTUBE.search(outside):
         return "youtube link outside '> [!youtube]' callout (보충 영상은 정본이 아니다)"
     return None

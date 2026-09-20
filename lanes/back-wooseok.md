@@ -13,6 +13,7 @@
 - `api/server.py`: `from tools.devserve import inject, resolve` 로 정적·주입은 **그대로 재사용**(§5.3). 거기에 `/api/*` 라우팅만 얹는다
 - `GET /api/segments/{lecture}` : `raw/L{n}/segments.json` + `api/media.json` 의 `video` → `{lecture, video, segments}`
 - `GET /api/source?anchor=` : §3 정규식 → **`s` 일치 + `t_start ≤ t ≤ t_end`** → 프레임·영상 URL. 없으면 404 `SOURCE_NOT_FOUND`
+- `GET /api/quotes?q=` : `from tools.quote_search import search` 한 줄(이미 실측된 도구). **T1에 같이 연다 — 민수가 제일 먼저 붙는다**
 - **완료 조건**: `curl '/api/source?anchor=L3%23s5%40t%3D330'` 가 `mock/source.json` 과 같은 모양을 뱉는다. 동욱에게 `board.sh status` 로 알린다.
 
 ### T2 (0:30–1:00) 필기 — 훅을 통과시키는 게 핵심

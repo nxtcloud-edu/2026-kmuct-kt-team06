@@ -87,7 +87,8 @@
 | GET | `/api/history?limit=10` | `[{ts, agent, tool, path, verdict, reason}]` (최신순) |
 | POST | `/api/qa` | 요청 `{question, model:"fast"\|"strong"\|"gemini", context:{slug, anchor\|null}}` → `{answer, anchors:[str], notes:[{anchor,text}], unanchored:[str], model, videos:[§5.1]}` · 위키에 근거 없으면 **200** `{answer:null, reason:"NO_GROUNDING", message, videos:[...]}` |
 | GET | `/api/youtube/search?q=` | `[§5.1]` — 교수 채널 결과 먼저, 그다음 일반 검색 |
-| GET | `/api/review` | `[{id, kind:"low_confidence"\|"grey"\|"rewritten"\|"quote_mismatch", lecture, slug, anchor\|null, text, reason}]` — 사람이 확인할 목록(PRD §4.8). 전부 기존 데이터에서 계산 |
+| GET | `/api/quotes?q=` | `[{lecture, t, s, quote, anchor}]` 시간순 — 전사본 원문에서 교수 실제 발언만(PRD §4.9). `from tools.quote_search import search` 그대로. LLM 없음 |
+| GET | `/api/review` | `[{id, kind:"low_confidence"\|"grey"\|"rewritten"\|"quote_mismatch"\|"merge", lecture, slug, anchor\|null, text, reason}]` — 사람이 확인할 목록(PRD §4.8). 전부 기존 데이터에서 계산 |
 | POST | `/api/review/approve` | 요청 `{id}` → `{ok:true}` · `agent:"user"` 로 WritePolicy 통과(프론트매터 `status:` 만 변경). 거부 시 422 `WRITE_REJECTED` |
 | GET | `/api/models` | `[{id:"fast", label:"빠름 · gpt-5.4-nano"}, ...]` — LLM 패널 드롭다운용 |
 
@@ -121,7 +122,7 @@ python3 tools/devserve.py 8000        # http://localhost:8000
 const USE_MOCK = true;
 const API = (p) => USE_MOCK ? `/mock${p.replace('/api','').split('?')[0]}.json` : p;
 ```
-목 파일: `mock/segments/L3.json` `mock/source.json` `mock/notes/L3.json` `mock/stats.json` `mock/history.json` `mock/qa.json` `mock/qa-nogrounding.json` `mock/review.json`
+목 파일: `mock/segments/L3.json` `mock/source.json` `mock/notes/L3.json` `mock/stats.json` `mock/history.json` `mock/qa.json` `mock/qa-nogrounding.json` `mock/review.json` `mock/quotes.json`
 POST는 목이 없다 → `USE_MOCK` 이면 필기는 `localStorage`, QA는 `mock/qa.json` 을 GET.
 
 ## 7. 화면 — Quartz 위에 얹는다

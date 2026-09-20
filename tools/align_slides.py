@@ -42,6 +42,14 @@ def read_slides(path):
 
 
 def read_transcript(path):
+    if str(path).endswith(".json"):  # tools/stt_grok.py 출력(문장 단위) — 30초 창으로 묶어 점수를 안정시킨다
+        sents, out = json.loads(Path(path).read_text(encoding="utf-8")), []
+        for x in sents:
+            if out and x["t_start"] - out[-1]["t_start"] < 30:
+                out[-1]["text"] += " " + x["text"]
+            else:
+                out.append({"t_start": x["t_start"], "text": x["text"]})
+        return out
     parts = re.split(r"^## (\d+):(\d\d):(\d\d)\s*$", Path(path).read_text(encoding="utf-8"), flags=re.M)
     out = []
     for i in range(1, len(parts), 4):

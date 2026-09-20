@@ -189,7 +189,10 @@
       ),
       el("div", "v-nav-label", "내 라이브러리"),
     );
-    renderFolder(nav, { id: "lectures", name: "알고리즘", type: "lecture" });
+    // 강의 폴더는 과목별로(library 항목의 course). course 가 없으면 "강의 노트" 하나로 묶는다.
+    const courses = [...new Set(pages.filter((p) => p.type === "lecture").map((p) => p.course || "강의 노트"))];
+    for (const c of courses.length ? courses : ["강의 노트"])
+      renderFolder(nav, { id: `lectures:${c}`, name: c, type: "lecture", course: c });
     renderFolder(nav, { id: "concepts", name: "개념 노트", type: "concept" });
     for (const p of state.local.filter((p) => !p.folderId))
       renderFile(nav, p, true);
@@ -256,7 +259,8 @@
     for (const child of state.folders.filter((f) => f.parentId === folder.id))
       renderFolder(children, child);
     if (folder.type)
-      for (const p of pages.filter((p) => p.type === folder.type && !state.hiddenSlugs.has(p.slug)))
+      for (const p of pages.filter((p) => p.type === folder.type && !state.hiddenSlugs.has(p.slug)
+        && (!folder.course || (p.course || "강의 노트") === folder.course)))
         renderFile(children, p);
     for (const p of state.local.filter((p) => p.folderId === folder.id))
       renderFile(children, p, true);
@@ -808,7 +812,9 @@
       media = null;
       host.replaceChildren();
       if (!state.mock) {
-        if (source.video.kind === "youtube") {
+        if (!source.video) {
+          host.append(el("p", "v-muted", "이 강의는 녹음 파일이 없습니다. 슬라이드와 교수님 발언만 표시합니다."));
+        } else if (source.video.kind === "youtube") {
           const link = el("a", "v-secondary", "YouTube에서 이 구간 열기 ↗");
           const url = new URL(source.video.src, location.origin);
           if (["https:", "http:"].includes(url.protocol)) {

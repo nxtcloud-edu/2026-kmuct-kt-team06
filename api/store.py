@@ -79,14 +79,20 @@ def media_config() -> dict:
     return data if isinstance(data, dict) else {}
 
 
-def video_for(lecture: str, segments_video: dict | None) -> dict:
-    """영상 소스: media.json 우선, 없으면 segments.json 의 video, 그것도 없으면 mp4 기본 경로."""
+def video_for(lecture: str, segments_video: dict | None) -> dict | None:
+    """영상 소스: media.json 우선, 없으면 segments.json 의 video, 그것도 없으면 mp4 기본 경로.
+    저장소 안(/raw/…) 파일인데 실제로 없으면 None — 전사본만 있는 강의(녹음 없음)를 뜻한다."""
     cfg = media_config().get(lecture, {})
     if isinstance(cfg.get("video"), dict):
-        return cfg["video"]
-    if isinstance(segments_video, dict):
-        return segments_video
-    return {"kind": "mp4", "src": f"/raw/{lecture}/{lecture}.mp4"}
+        v = cfg["video"]
+    elif isinstance(segments_video, dict):
+        v = segments_video
+    else:
+        v = {"kind": "mp4", "src": f"/raw/{lecture}/{lecture}.mp4"}
+    src = str(v.get("src") or "")
+    if src.startswith("/raw/") and not (ROOT / src.lstrip("/")).is_file():
+        return None
+    return v
 
 
 def lecture_date(lecture: str) -> str | None:

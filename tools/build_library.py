@@ -24,8 +24,17 @@ def _field(fm: str, key: str, default: str = "") -> str:
     return m.group(1).strip().strip('"').strip("'") if m else default
 
 
+def _courses() -> dict:
+    try:
+        cfg = json.loads((ROOT / "api/media.json").read_text(encoding="utf-8"))
+        return {k: v.get("course") for k, v in cfg.items() if isinstance(v, dict) and v.get("course")}
+    except Exception:
+        return {}
+
+
 def build() -> list:
     pages = []
+    courses = _courses()
     for kind, folder in (("lecture", "lectures"), ("concept", "concepts")):
         for p in sorted((ROOT / "wiki" / folder).glob("*.md")):
             body = p.read_text(encoding="utf-8")
@@ -39,6 +48,7 @@ def build() -> list:
                 "status": status,
                 "type": _field(fm, "type", kind),
                 "slug": f"{folder}/{p.stem}",
+                "course": courses.get((re.match(r"L\d+", p.stem) or [""])[0]) if kind == "lecture" else None,
                 "body": body,
             })
     return pages

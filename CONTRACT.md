@@ -57,8 +57,10 @@
 
 ### 4.1b `raw/L{n}/transcript.json` (① 적재의 중간 형식 — 다글로든 Grok STT든 이걸로 맞춘다)
 ```json
-[{"t_start": 312.0, "t_end": 318.4, "text": "BFS는 큐를 씁니다"}]
+[{"t_start": 312.0, "t_end": 318.4, "text": "BFS는 큐를 씁니다", "agree": 0.96}]
 ```
+
+`agree`(선택) = 두 전사본의 일치율(PRD §8.9). **0.5 미만 문장은 🗣 인용 금지 + 화면 경고, 0.8 미만은 🔈 표시.** 필드가 없으면 "측정 안 됨".
 
 ### 4.2 위키 페이지 — 옵시디언 형식 그대로 (`wiki/` = 옵시디언 볼트로도 열린다)
 - **`wiki/lectures/L{n}_<제목>.md` = 강의 노트.** 주제(`## 1.`)마다 `### 📄 슬라이드` → `### 💡 설명` → `> 🗣 "교수님 말" [[앵커]]` → `### 🎯 포인트`. 견본 `wiki/lectures/L3_그래프_탐색.md`, 규칙 `skills/wiki-anchor`.
@@ -87,8 +89,8 @@
 | GET | `/api/history?limit=10` | `[{ts, agent, tool, path, verdict, reason}]` (최신순) |
 | POST | `/api/qa` | 요청 `{question, model:"fast"\|"strong"\|"gemini", context:{slug, anchor\|null}}` → `{answer, anchors:[str], notes:[{anchor,text}], unanchored:[str], model, videos:[§5.1]}` · 위키에 근거 없으면 **200** `{answer:null, reason:"NO_GROUNDING", message, videos:[...]}` |
 | GET | `/api/youtube/search?q=` | `[§5.1]` — 교수 채널 결과 먼저, 그다음 일반 검색 |
-| GET | `/api/quotes?q=` | `[{lecture, t, s, quote, anchor}]` 시간순 — 전사본 원문에서 교수 실제 발언만(PRD §4.9). `from tools.quote_search import search` 그대로. LLM 없음 |
-| GET | `/api/review` | `[{id, kind:"low_confidence"\|"grey"\|"rewritten"\|"quote_mismatch"\|"merge", lecture, slug, anchor\|null, text, reason}]` — 사람이 확인할 목록(PRD §4.8). 전부 기존 데이터에서 계산. `low_confidence` 는 강의당 점수 낮은 순 5개(문턱값 아님, PRD §8.7) — **화면에 숫자를 확률처럼 보여 주지 않는다** |
+| GET | `/api/quotes?q=` | `[{lecture, t, s, quote, anchor, agree\|null}]` 시간순 — 전사본 원문에서 교수 실제 발언만(PRD §4.9). `from tools.quote_search import search` 그대로. LLM 없음 |
+| GET | `/api/review` | `[{id, kind:"low_confidence"\|"grey"\|"rewritten"\|"quote_mismatch"\|"merge"\|"stt_uncertain", lecture, slug, anchor\|null, text, reason}]` — 사람이 확인할 목록(PRD §4.8). 전부 기존 데이터에서 계산. `low_confidence` 는 강의당 점수 낮은 순 5개(문턱값 아님, PRD §8.7) — **화면에 숫자를 확률처럼 보여 주지 않는다** |
 | POST | `/api/review/approve` | 요청 `{id}` → `{ok:true}` · `agent:"user"` 로 WritePolicy 통과(프론트매터 `status:` 만 변경). 거부 시 422 `WRITE_REJECTED` |
 | GET | `/api/models` | `[{id:"fast", label:"빠름 · gpt-5.4-nano"}, ...]` — LLM 패널 드롭다운용 |
 

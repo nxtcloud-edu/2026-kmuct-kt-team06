@@ -10,21 +10,19 @@ const assert = require("node:assert/strict");
     const button = (name) => page.getByRole("button", { name, exact: true });
     await page.goto("http://127.0.0.1:8000");
     await page.locator(".v-article .v-anchor").first().click();
-    await button("전체 화면").click();
-    await page.waitForFunction(() => document.fullscreenElement?.id === "v-pane");
+    await button("노트와 영상 나란히 보기").click();
+    await page.waitForFunction(() => document.querySelector(".v-split"));
+    assert.equal(await page.evaluate(() => document.fullscreenElement), null);
     assert.equal(await page.locator(".v-media-empty").count(), 0);
     assert.equal(await page.locator(".n-chat-disclaimer").count(), 0);
-    await button("전체 화면 종료").click();
-    await page.waitForFunction(() => !document.fullscreenElement);
+    await button("작은 플레이어로 돌아가기").click();
+    assert.equal(await page.locator(".v-split").count(), 0);
     await page.locator(".v-player-head").getByRole("button", { name: "×", exact: true }).click();
-    await page.evaluate(() => {
-      document.querySelector("#v-pane").requestFullscreen = () => Promise.reject(new Error("unsupported"));
-    });
     await page.locator(".v-article .v-anchor").first().click();
-    await button("전체 화면").click();
-    assert.equal(await page.locator(".v-player-fullscreen").count(), 1);
+    await button("노트와 영상 나란히 보기").click();
+    assert.equal(await page.locator(".v-split").count(), 1);
     await page.keyboard.press("Escape");
-    assert.equal(await page.locator(".v-player-fullscreen").count(), 0);
+    assert.equal(await page.locator(".v-split").count(), 0);
     await page.locator(".v-player-head").getByRole("button", { name: "×", exact: true }).click();
 
     // An actual WAV tests the media path and bounded playback without relying on missing demo media.

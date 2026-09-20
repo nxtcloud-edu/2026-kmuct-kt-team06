@@ -80,6 +80,8 @@ python3 -m api.server 8000                   # 화면 + /api/* 를 한 오리진
 
 ## 기술 스택
 
+기술마다 풀려던 문제와 해결은 **[`docs/TECH.md`](docs/TECH.md)**.
+
 | | |
 |---|---|
 | 프론트 | 바닐라 JS SPA(빌드 도구 없음) · KaTeX 로컬 번들 · `innerHTML` 0건(전사·필기·모델 출력은 전부 textContent) |
@@ -119,6 +121,7 @@ site/       Quartz                      lanes/ .kiro/  레인별 작업 지시�
 
 | | |
 |---|---|
+| [`docs/TECH.md`](docs/TECH.md) | **기술별로 — 무엇을 풀려고 했고 어떻게 풀었나**(정렬·STT 교차 검증·앵커·훅·비평·질의응답·배포) |
 | [`docs/AS-BUILT-0920.md`](docs/AS-BUILT-0920.md) | **실제로 만들어진 것** — 설계와 달라진 곳, 당일 터진 것과 고친 것 |
 | [`docs/API-frontend.md`](docs/API-frontend.md) | API 경로·요청·응답·오류 코드 |
 | [`CONTRACT.md`](CONTRACT.md) | 레인 간 계약: 앵커 규약, API 스키마, 프론트 이벤트 |

@@ -72,11 +72,20 @@ def load_transcript(lecture: str) -> list:
 # api/media.json — 강의별 영상 소스·채널·날짜. segments.json 에도 video 가 있지만
 # 녹음만 있는 강의(kind:"audio")나 유튜브 강의는 여기서 덮어쓴다(design.md).
 _MEDIA_PATH = ROOT / "api" / "media.json"
+# raw/media.local.json — 파이프라인(pipeline/prep.py)이 쓰는 덧씌우기. 추적되는 media.json 은 건드리지 않는다.
+_MEDIA_LOCAL = RAW / "media.local.json"
 
 
 def media_config() -> dict:
-    data = _read_json(_MEDIA_PATH)
-    return data if isinstance(data, dict) else {}
+    """api/media.json + raw/media.local.json (강의별로 덧씌우기가 이긴다). 없거나 깨졌으면 무시한다."""
+    base = _read_json(_MEDIA_PATH)
+    merged = dict(base) if isinstance(base, dict) else {}
+    over = _read_json(_MEDIA_LOCAL)
+    if isinstance(over, dict):
+        for k, v in over.items():
+            cur = merged.get(k)
+            merged[k] = {**cur, **v} if isinstance(cur, dict) and isinstance(v, dict) else v
+    return merged
 
 
 def video_for(lecture: str, segments_video: dict | None) -> dict | None:

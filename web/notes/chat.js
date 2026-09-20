@@ -174,14 +174,39 @@
                   },
                 }),
               });
-          reply.append(
-            el(
-              "p",
-              "",
-              data.answer || data.message || "위키에 근거가 없습니다.",
-            ),
+          const inline = new Set();
+          if (data.answer) {
+            const answer = el("div", "n-answer");
+            // 답변은 목록·굵은 글씨·수식(KaTeX)까지 그린다. 실패하면 예전처럼 한 문단으로.
+            let rendered = null;
+            if (window.MotgaRich) {
+              try {
+                rendered = window.MotgaRich.render(answer, data.answer, {
+                  anchor: A.anchor,
+                });
+              } catch {
+                rendered = null;
+              }
+            }
+            if (rendered && answer.childNodes.length)
+              for (const a of rendered.anchors) inline.add(a);
+            else answer.replaceChildren(el("p", "", data.answer));
+            reply.append(answer);
+          } else {
+            reply.append(
+              el("p", "", data.message || "위키에 근거가 없습니다."),
+            );
+          }
+          // 본문에 이미 박힌 앵커는 빼고, 남은 것만 "출처" 줄로 모은다
+          const rest = (data.anchors || []).filter(
+            (a) => !inline.has(String(a).replace(/[[\]]/g, "").trim()),
           );
-          for (const a of data.anchors || []) reply.append(A.anchor(a));
+          if (rest.length) {
+            const sources = el("div", "n-sources");
+            sources.append(el("small", "n-sources-label", "출처"));
+            for (const a of rest) sources.append(A.anchor(a));
+            reply.append(sources);
+          }
           for (const n of data.notes || []) {
             const note = el("div", "n-quoted-note");
             note.append(el("small", "", "내 필기"), el("p", "", n.text));

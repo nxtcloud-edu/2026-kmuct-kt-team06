@@ -25,11 +25,17 @@ def _field(fm: str, key: str, default: str = "") -> str:
 
 
 def _courses() -> dict:
-    try:
-        cfg = json.loads((ROOT / "api/media.json").read_text(encoding="utf-8"))
-        return {k: v.get("course") for k, v in cfg.items() if isinstance(v, dict) and v.get("course")}
-    except Exception:
-        return {}
+    """강의 → 과목명. api/media.json 에 raw/media.local.json(파이프라인 산출) 을 덧씌운다."""
+    out = {}
+    for path in (ROOT / "api/media.json", ROOT / "raw/media.local.json"):
+        try:
+            cfg = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(cfg, dict):
+                continue
+        except Exception:
+            continue
+        out.update({k: v.get("course") for k, v in cfg.items() if isinstance(v, dict) and v.get("course")})
+    return out
 
 
 def build() -> list:

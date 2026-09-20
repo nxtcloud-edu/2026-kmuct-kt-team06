@@ -1026,6 +1026,201 @@
   accent-color: #897cbd;
   margin: 35px 0;
 }
+/* ── AI 분석(인제스트) 화면 ─────────────────────────────── */
+.v-ingest-form {
+  display: block;
+  margin-top: 28px;
+}
+.v-ingest-label {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--v-muted);
+  margin-top: 18px;
+}
+.v-ingest-form .v-search-input {
+  margin: 8px 0 0;
+}
+.v-ingest-select {
+  display: block;
+  width: 100%;
+  border: 1px solid #dfdce9;
+  background: white;
+  color: var(--v-text);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-top: 8px;
+  font-size: 13px;
+  font-family: inherit;
+}
+.v-ingest-newcourse {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.v-ingest-newcourse[hidden] {
+  display: none;
+}
+.v-ingest-input {
+  flex: 1;
+  border: 1px solid #dfdce9;
+  background: white;
+  color: var(--v-text);
+  border-radius: 8px;
+  padding: 11px 14px;
+  font-size: 13px;
+  font-family: inherit;
+}
+.v-ingest-row {
+  gap: 10px;
+}
+.v-ingest-badge {
+  flex: none;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  background: var(--v-soft);
+  color: #6f6259;
+  border: 1px solid var(--v-line);
+}
+.v-ingest-badge-slide {
+  background: #efe9fb;
+  border-color: #ded3f6;
+  color: #6b5fa8;
+}
+.v-ingest-badge-transcript {
+  background: #e9f1ec;
+  border-color: #d3e3d9;
+  color: #547061;
+}
+.v-ingest-badge-media {
+  background: #faf0e6;
+  border-color: #eedfcc;
+  color: #96764c;
+}
+.v-ingest-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v-ingest-summary {
+  font-size: 12px;
+  color: var(--v-muted);
+  margin: 0 0 6px;
+}
+.v-ingest-hint {
+  font-size: 12px;
+  color: #6d8474;
+  margin: 0 0 20px;
+}
+.v-ingest-hint.bad {
+  color: #a8705f;
+}
+.v-ingest-card {
+  border: 1px solid var(--v-line);
+  background: #fdfcfb;
+  border-radius: 12px;
+  padding: 26px;
+  margin: 30px 0 20px;
+  box-shadow: var(--v-shadow);
+}
+.v-ingest-card-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 13px;
+}
+.v-ingest-elapsed {
+  margin-left: auto;
+  color: var(--v-muted);
+  font-size: 11px;
+}
+.v-ingest-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  list-style: none;
+  margin: 22px 0;
+  padding: 0;
+}
+.v-ingest-step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #b4aca6;
+}
+.v-ingest-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--v-line);
+}
+.v-ingest-step.done {
+  color: var(--v-muted);
+}
+.v-ingest-step.done .v-ingest-dot {
+  background: var(--v-green);
+}
+.v-ingest-step.current {
+  color: #5d51a0;
+  font-weight: 600;
+}
+.v-ingest-step.current .v-ingest-dot {
+  background: #7770bc;
+  box-shadow: 0 0 0 4px rgba(119, 112, 188, 0.18);
+}
+.v-ingest-bar {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--v-soft);
+  overflow: hidden;
+}
+.v-ingest-bar-fill {
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: #7770bc;
+  transition: width 0.4s ease;
+}
+.v-ingest-percent {
+  display: block;
+  margin-top: 8px;
+  font-size: 12px;
+  color: #5d51a0;
+}
+.v-ingest-detail {
+  font-size: 12px;
+  color: var(--v-muted);
+  line-height: 1.8;
+  margin: 10px 0 0;
+}
+.v-ingest-warn {
+  font-size: 11px;
+  color: #a8705f;
+  margin: 8px 0 0;
+}
+.v-ingest-error {
+  border: 1px solid #f0d9d2;
+  background: #fbf2ef;
+  color: #9c6151;
+  border-radius: 10px;
+  padding: 18px;
+  font-size: 13px;
+  margin: 26px 0 18px;
+}
+.v-ingest-chip {
+  width: 100%;
+  border: 1px solid rgba(119, 112, 188, 0.28);
+  background: rgba(239, 233, 251, 0.75);
+  color: #5d51a0 !important;
+  border-radius: 10px;
+  padding: 10px;
+  font-size: 11px !important;
+  text-align: left;
+}
 .v-notice {
   background: #faf5e9;
   border: 1px solid #f0e5c7;

@@ -51,3 +51,11 @@
 | `GET /api/quotes` | ⚠️ SPEC(F-01 AC4)은 `agree\|null` 을 같이 주라고 하지만 **현재 코드는 안 준다**(`tools/quote_search.py`에 agree 없음) | 지금은 🔈 표시 못 함. 필요하면 백엔드에 요청 |
 
 **알려진 한계(발표에서 그대로 말할 것)**: 불일치의 상당수는 오인식이 아니라 **영어 전문용어 표기 차이**다(한쪽은 "Make the common case fast", 다른 쪽은 "메이크 더 커먼 케이스 패스트"). 그래서 이 값은 "틀렸다"가 아니라 **"사람이 먼저 볼 순서"**로만 쓴다.
+
+## 변경 기록 (09-20 오후) — 실서버에서 확인한 것
+- `GET /api/quotes` 결과에 **`agree`**(전사 일치율, 없으면 `null`)와 **`course`** 추가. `agree===null` 은 "측정 전"이지 "낮음"이 아니다. `agree<0.5` 일 때만 🔈.
+- `GET /api/source` 의 `video` 는 **`null` 일 수 있다**(녹음 파일이 없는 강의) → 플레이어를 만들지 말고 안내문 + 슬라이드·발언만. 있으면 `{kind:"audio"|"mp4"|"youtube", src}`. 재생 위치는 `src#t=<초>` + `loadedmetadata`/`canplay` 에서 한 번 더 확인(한 번만 seek 하면 0초부터 트는 브라우저가 있다).
+- **숨기기/복원은 서버 상태**: `POST /api/review/hide {id:"page:<slug>"}` → `status: grey`, `POST /api/review/approve` 로 복원. 뷰어는 목록의 `status==="grey"` 를 숨김·휴지통으로 취급한다(다른 브라우저에서도 같게 보인다).
+- 뷰어의 페이지 목록 = `/web/viewer/library.local.json`(서버가 위키로 생성: `{title,status,type,slug,course,body}`), 없으면 `/web/viewer/library.json`(견본).
+- 샘플(mock) 모드는 기본 **꺼짐**. API 없이 화면만 만들 때 설정(⚙)에서 켠다.
+- 🚧 `POST /api/ingest`: 슬라이드 **PDF 필수** + (타임스탬프 전사본 `.md`/`.json` **또는** 녹음·영상 — 없으면 서버가 Grok STT). `multipart/form-data` 는 `fetch` 에 `FormData` 를 그대로 넘기고 Content-Type 을 직접 넣지 않는다. 진행: `GET /api/ingest/{job}` 의 `stage`(upload→stt→align→episodic→compile→build→done|error)·`percent`·`detail`. 강의 1편 10~20분.

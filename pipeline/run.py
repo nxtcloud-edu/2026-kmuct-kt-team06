@@ -72,6 +72,14 @@ def run(lecture, title="", course="", src_dir=None, progress=None, on_progress=N
     run_id = uuid.uuid4().hex[:8]
     emit("upload", 5, f"{lecture} '{title}' 시작 (run {run_id})")
 
+    # ① 적재 전처리 — 업로드 원본만 있고 구간표가 없으면 여기서 만든다(pipeline/prep.py).
+    if not (ROOT / "raw" / lecture / "segments.json").exists():
+        from pipeline.prep import prep
+        ok, why = prep(lecture, title=title, course=course, emit=emit)
+        if not ok:
+            emit("error", 10, why)
+            return {"lecture": lecture, "run": run_id, "topics": [], "allowed_pages": 0, "error": why}
+
     fg = stage_frameguard(lecture)
     emit("align", 10, f"FrameGuard: {fg['decision']}")
     if fg["decision"] != "allow":
@@ -97,7 +105,7 @@ def run(lecture, title="", course="", src_dir=None, progress=None, on_progress=N
     for i, (s_from, s_to) in enumerate(topics):
         pct = 30 + int(50 * (i + 1) / max(len(topics), 1))
         emit("compile", pct, f"주제 s{s_from}-{s_to} ({i+1}/{len(topics)})")
-        results.append(O.run_compile_topic(lecture, s_from, s_to, run_id, emit))
+        results.append(O.run_compile_topic(lecture, s_from, s_to, run_id, emit, title=title, course=course))
 
     crit = stage_critic(lecture)
     emit("compile", 88, "비평 " + ("완료" if crit else "생략(critic.py 없음)"))

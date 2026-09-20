@@ -25,7 +25,7 @@
 ### T2 (0:30–1:00) 스킬 문구 수정 + ②정렬 돌리기
 - `wiki-anchor`: "s = 슬라이드 번호 **또는 판서 구간 번호**", 유효 조건 = segments.json · `[[note:` `[[signal:` 금지 한 줄
 - `align-extract`: 입력을 `segments.json` 으로 · "OCR 텍스트는 배정 힌트일 뿐 본문에 옮기지 않는다"
-- **`pipeline/llm.py` 먼저(우석이 기다린다)**: `complete(role, system, messages, tools)` 어댑터 — `LLM_PROVIDER=openai|anthropic|gemini`, 429면 다음 공급자로. 20분 안에 OpenAI 하나만이라도 푸시
+- **`pipeline/llm.py` 먼저(우석이 기다린다)**: `complete(role, system, messages, tools)` 어댑터 — `LLM_PROVIDER=openai|anthropic|gemini|grok`, 429면 다음 공급자로. 20분 안에 OpenAI 하나만이라도 푸시
 - `pipeline/orchestrator.py`: 단계 고정·에이전트별 최대 턴(②30 ③20 ④10 ⑤15 ⑦8)·이벤트에 `agent` 실어 훅 호출·실패 2회면 grey
 - ② 실행 → `wiki/episodic/L3.md`
 - **완료 조건**: episodic 에 `## s{s} @t={초}` 블록이 쌓인다.

@@ -92,7 +92,7 @@ LLM 패널은 **위키에만 근거해** 답한다. 그 답변 **아래**에 "�
 # pipeline/llm.py — 공급자 어댑터 1개. 에이전트 코드는 이것만 안다
 complete(role: "strong"|"fast", system, messages, tools) -> {text, tool_calls}
 ```
-환경변수 `LLM_PROVIDER=openai|anthropic|gemini`, `LLM_STRONG`, `LLM_FAST` 로 바꾼다. 코드 수정 없음.
+환경변수 `LLM_PROVIDER=openai|anthropic|gemini|grok`, `LLM_STRONG`, `LLM_FAST` 로 바꾼다. 코드 수정 없음.
 
 | 역할 | 하는 일 | OpenAI로 가면 | Claude로 가면 |
 |---|---|---|---|
@@ -104,6 +104,7 @@ complete(role: "strong"|"fast", system, messages, tools) -> {text, tool_calls}
 - ⚠️ **"gpt-4"(및 gpt-4o·gpt-4.1 본체)는 무료 목록에 없다 → 과금.** 팀이 말한 "gpt-4"는 `gpt-4.1-mini`로 읽는다. "gpt-mini-o4"는 `o4-mini`.
 - ⚠️ 무료 티어는 **데이터 공유 조건**으로 보임 → 공개 강의 전사본만 보낸다. 필기(notes)는 컴파일 입력에서 빼거나 Claude 쪽으로만.
 - o4-mini는 추론 모델이라 느리다(페이지당 수십 초). 현장 시연은 **미리 컴파일한 결과 + 라이브로 1페이지만**.
+- 🆕 **Grok(xAI) API 사용 예정**(9/20 팀장). xAI API는 OpenAI 호환 형식이라 어댑터에서는 `base_url=https://api.x.ai/v1` + `XAI_API_KEY` 만 바꾸면 된다 → 추가 비용 거의 0. 역할(기본 모델 / 패널 선택지 / TTS)은 ❓ 미정.
 - 🆕 **Gemini API도 후보**(팀장: 한도는 적지만 쓸 수 있음). 한도가 작으므로 **배치 컴파일에는 쓰지 않고 LLM 패널의 선택지 1개(fast)로만** 둔다 — 429가 나면 어댑터가 OpenAI로 자동 폴백. 정확한 모델명·한도는 키 발급 화면에서 확인 후 `LLM_FAST`에 넣는다(❓).
 - ✅ 팀장 확인: **OpenAI·Gemini·Anthropic 키 3종 다 있음.** → 배치 컴파일 strong = Sonnet 5(앵커 정확도 우선) 또는 o4-mini(무료), fast = gpt-5.4-nano(무료). LLM 패널 드롭다운에 3종 노출. 키는 EC2 환경변수로만.
 

@@ -5,7 +5,7 @@
 **소유**: `api/` 만. `hooks/` `tools/` 는 **import 해서 쓰되 수정 금지**.
 **읽을 것**: `CONTRACT.md` §3 · §4 · **§5 전부(5.2 QA 규칙, 5.3 서빙)**.
 **스택**: Python 표준 라이브러리 우선. LLM 호출은 팀장의 `pipeline/llm.py`(T2 이후 생김) — 그 전엔 가짜 답으로 배선만.
-**키**: `OPENAI_API_KEY` `GEMINI_API_KEY` `ANTHROPIC_API_KEY` `TRANSCRIPT_API_KEY` 는 **환경변수로만.** 코드·저장소·로그·응답에 넣지 않는다.
+**키**: `OPENAI_API_KEY` `XAI_API_KEY` `GEMINI_API_KEY` `ANTHROPIC_API_KEY` `TRANSCRIPT_API_KEY` 는 **환경변수로만.** 코드·저장소·로그·응답에 넣지 않는다.
 
 ## 30분 단위
 
@@ -24,7 +24,7 @@
 ### T3 (1:00–1:30) stats · history · models
 - `stats`: `wiki/concepts` `wiki/lectures` 프론트매터 스캔(파서는 직접 20줄: `key: value`, `[a, b]`) → 페이지·status별·링크·필기 수 + `wiki/signals/coverage.md` 있으면 `coverage`
 - `history`: `wiki/.history.jsonl` 꼬리 N줄 역순
-- `models`: `[{id:"fast",label},{id:"strong",label},{id:"gemini",label}]` — 라벨은 환경변수 `LLM_FAST` 등에서
+- `models`: `[{id:"fast",label},{id:"strong",label},{id:"gemini",label},{id:"grok",label}]` — 라벨은 환경변수 `LLM_FAST` 등에서
 - **완료 조건**: 민수 대시보드가 `USE_MOCK=false` 로 뜬다.
 
 ### T4 (1:30–2:00) `/api/qa` — 위키 한정 (§5.2)

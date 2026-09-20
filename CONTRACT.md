@@ -60,9 +60,13 @@
 [{"t_start": 312.0, "t_end": 318.4, "text": "BFS는 큐를 씁니다"}]
 ```
 
-### 4.2 위키 페이지 (`wiki/concepts/<slug>.md`, `wiki/lectures/L{n}.md`)
-프론트매터 `title, type, sources, status(draft|approved|grey), links` + `## Current` + `## History`.
-`Current` 의 한 문단 = 한 주장 + 앵커 1개 이상.
+### 4.2 위키 페이지 — 옵시디언 형식 그대로 (`wiki/` = 옵시디언 볼트로도 열린다)
+- **`wiki/lectures/L{n}_<제목>.md` = 강의 노트.** 주제(`## 1.`)마다 `### 📄 슬라이드` → `### 💡 설명` → `> 🗣 "교수님 말" [[앵커]]` → `### 🎯 포인트`. 견본 `wiki/lectures/L3_그래프_탐색.md`, 규칙 `skills/wiki-anchor`.
+  - **🗣 인용에는 반드시 앵커** = 누르면 교수가 그 말을 한 초로 간다. 📄 줄의 앵커 = 그 PPT 슬라이드.
+  - `> [!youtube]` 콜아웃 = 보충 영상 링크(교수가 "찾아보라"고 넘긴 선수 지식). 정본 아님, 앵커 불가, 콜아웃 밖 유튜브 링크는 훅이 거부.
+- **`wiki/concepts/<slug>.md` = 개념 페이지.** 프론트매터 + `## Current`(한 문단 = 한 주장 + 앵커) + `## History`. 여러 강의에 걸쳐 쌓인다.
+- 공통 프론트매터 `title, type, sources, status(draft|approved|grey), links`.
+- ✅ 훅 실측(9/20): 정상 allow · 🗣 앵커 없음 · 없는 초 · 콜아웃 밖 유튜브 · 📄 앵커 없음 · 쓰기 루트 밖 → 전부 REJECTED + 사유.
 
 ### 4.3 필기 (`wiki/notes/L{n}/s{k}.md`)
 프론트매터 `type: note, anchor, frame, trust: user, updated` · 본문 8KB 이하.
@@ -87,7 +91,7 @@
 
 ### 5.1 영상 카드
 `{videoId, title, channel, duration, thumbnail, url, source:"professor"|"search"}`
-**보충 추천일 뿐이다. 위키에 넣지 않는다. 앵커가 될 수 없다.** 교수 채널 id는 `api/media.json` 의 `professorChannel`.
+**보충 추천일 뿐이다. 앵커가 될 수 없다.** 위키에는 `> [!youtube]` 콜아웃 안에만 들어간다(§4.2). 교수 채널 id는 `api/media.json` 의 `professorChannel`.
 
 ### 5.2 `/api/qa` 규칙 (LLM 패널 = 위키 한정)
 1. `tools/grep_wiki.py` + 링크 1홉으로 위키에서 근거를 찾는다. **위키 밖 지식으로 답하지 않는다.**
@@ -153,7 +157,7 @@ POST는 목이 없다 → `USE_MOCK` 이면 필기는 `localStorage`, QA는 `moc
 
 ### 7.2b 원본으로 가는 두 가지 길 (둘 다 viewer)
 1. **앵커 칩 클릭** — 문단 끝의 칩.
-2. **드래그(텍스트 선택) → 떠오르는 `원본 보기` 버튼** — 선택한 글자가 속한 문단(`p`, `li`)의 **첫 앵커 칩**으로 점프한다. 선택이 여러 문단에 걸치면 시작 문단 기준. 그 문단에 칩이 없으면 버튼을 안 띄운다(근거 없는 문장이라는 뜻). LLM을 부르지 않는다 — 순수 DOM.
+2. **드래그(텍스트 선택) → 떠오르는 `원본 보기` 버튼** — 선택한 글자가 속한 블록(`p`, `li`, `blockquote`)의 **첫 앵커 칩**으로 점프한다. 그 블록에 칩이 없으면(💡·🎯 줄) **같은 `## N.` 주제 안에서 바로 앞에 나온 칩**으로. 선택이 여러 문단에 걸치면 시작 문단 기준. 주제 안에 칩이 하나도 없으면 버튼을 안 띄운다. LLM을 부르지 않는다 — 순수 DOM.
 
 점프하면 **한 번에 셋이 뜬다**: ① 영상·녹음이 그 초로 이동 ② `slide` 가 있으면 그 PPT 슬라이드 이미지(`/raw/L{n}/slides/s{s}.png`) ③ 없으면 `frame`. **녹음만 있는 강의**(`video.kind:"audio"`)는 `<audio>` 플레이어 + 슬라이드 이미지를 크게.
 

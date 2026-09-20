@@ -5,7 +5,7 @@ status: approved
 ---
 
 ## 강의
-- [[lectures/L3|L3 — 그래프 탐색]]
+- [[lectures/L3_그래프_탐색|L3. 그래프 탐색]]
 
 ## 개념
 - [[concepts/bfs|너비 우선 탐색 (BFS)]]

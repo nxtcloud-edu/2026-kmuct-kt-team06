@@ -25,3 +25,8 @@ description: ③ 컴파일 에이전트 전용. episodic 관찰을 읽어 concep
 
 # 출력
 저장한 페이지 경로와 변경 요약 한 줄. 새로 쓸 게 없으면 `NONE`.
+
+## lectures/ 는 강의 노트 포맷 (2026-09-20)
+`wiki/lectures/` 페이지는 Current/History 가 아니라 **📄 슬라이드 → 💡 설명 → 🗣 교수님 말 → 🎯 포인트** 형식이다. 규칙과 견본은 `skills/wiki-anchor` 의 「강의 노트 포맷」. `concepts/` 는 그대로 Current/History.
+- 🗣 에는 전사본에 실제로 있는 말만, 그 초의 앵커와 함께. 다듬어 줄이는 건 되지만 없는 말을 만들지 않는다.
+- 교수가 선수 지식을 밖으로 넘긴 🗣("찾아보라", "구글링", "전에 배웠을 것") 바로 아래에만 `> [!youtube]` 콜아웃. `youtube_search` 결과만, 교수 채널 먼저.

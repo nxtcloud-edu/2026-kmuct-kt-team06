@@ -32,6 +32,7 @@
 - **완료 조건**: episodic 에 `## s{s} @t={초}` 블록이 쌓인다.
 
 ### T3 (1:00–1:30) ③컴파일 → 진짜 페이지
+- **lectures/ 는 강의 노트 포맷**(📄💡🗣🎯, `skills/wiki-anchor`). 훅 `check_lecture` 는 이미 들어 있고 6케이스 실측됨. `prompts/03-compile.md` 에 견본 페이지를 few-shot 으로 붙인다. `youtube_search` 도구를 ③에 등록(우석의 `api/youtube.py` 함수 재사용, 없으면 콜아웃 생략)
 - `compile-page` 수정(필기 달린 구간 우선 · 제보/필기 문장을 Current 에 넣지 않는다)
 - ③ 실행 → `wiki/concepts/*.md`, `wiki/lectures/L3.md`
 - Quartz `--watch` 가 새 페이지를 몇 초 안에 화면에 올리는지 확인(= 발표의 "위키가 자란다" 장면)

@@ -29,3 +29,17 @@ SUSPENDED <path>
 - CONFLICT wiki/concepts/<other>.md:<line> — "<문장>" vs "<상대 문장>"
 ```
 의견, 문체 지적, 추가 제안은 쓰지 않는다.
+
+## 판정은 타입 있는 좁은 질문으로 (2026-09-20, 출처: TypeSafe skills 분석 — 볼트 `sources/2026-09-19__typesafe-skills-jev-analysis`)
+
+자유 서술로 "이 페이지 괜찮은가"를 묻지 않는다. **문단(또는 🗣 인용) 하나마다 아래 질문을 따로, 서로의 답을 보지 않고** 답한다. 출력은 JSON 한 줄.
+
+```json
+{"id":"c2","supported":"yes|no|partial","quote_faithful":"yes|no|na","from_untrusted":"yes|no","evidence":"전사본에서 찾은 구절 20자 이내 또는 \"\""}
+```
+- `supported`: 이 문단의 주장이 **그 앵커 구간의 전사본·슬라이드 안에** 있는가. 구간 밖 지식으로 판단하지 않는다.
+- `quote_faithful`: 🗣 인용이 교수의 실제 발언을 뜻을 바꾸지 않고 줄인 것인가. 인용이 아니면 `na`.
+- `from_untrusted`: 제보·필기에서 온 문장이 섞였는가.
+- **근거를 못 찾으면 `no` 와 빈 evidence** — 맞는 선택지가 없을 때 억지로 고르지 않는다.
+
+모델은 여기까지만 한다. **APPROVED / SUSPENDED / grey 는 코드가 정한다**: `no` 가 하나라도 있거나 `from_untrusted: yes` → SUSPENDED(그 문단만 ③ 재작성) · `partial` 만 있으면 검토함으로 · 2회 실패 → grey. 개수 세기·임계값·재시도 횟수는 전부 코드.

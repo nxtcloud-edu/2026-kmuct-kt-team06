@@ -35,3 +35,4 @@ wiki/signals/coverage.md
 
 # OS마다 내용이 다른 Kiro 훅 (맥 .sh / 윈도우 .ps1) — 각자 kirothon-board setup 이 설치한다
 .kiro/hooks/board-gate.json
+.prompt-backup-ko/

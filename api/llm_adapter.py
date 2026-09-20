@@ -22,11 +22,14 @@ def _real_complete():
 def complete(role, system, messages, tools=None, model="fast"):
     fn = _real_complete()
     if fn is not None:
+        # pipeline.llm.complete 의 첫 인자는 에이전트 이름("qa")이 아니라 모델 등급("fast"|"strong")
+        # 또는 명시적 모델 id 다. 에이전트 이름을 넘기면 그 이름의 모델을 찾다 404 가 난다.
+        tier = model if model else "fast"
         try:
-            return fn(role=role, system=system, messages=messages, tools=tools)
+            return fn(role=tier, system=system, messages=messages, tools=tools)
         except TypeError:
             # 시그니처가 위치인자면
-            return fn(role, system, messages, tools)
+            return fn(tier, system, messages, tools)
     return _stub_complete(system, messages, model)
 
 

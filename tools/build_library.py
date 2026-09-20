@@ -6,7 +6,7 @@
 
 뷰어(web/viewer/viewer.js)는 [{title,status,type,slug,body}] 목록을 그린다. 먼저 library.local.json 을 찾고,
 없으면 저장소에 커밋된 견본 library.json(L3 4쪽)으로 돌아간다.
-- status: grey 는 뺀다(숨기기 = build_wiki 와 같은 규칙).
+- status: grey 도 넣는다(뷰어가 숨김·휴지통으로 처리). Quartz 빌드 쪽 제외는 build_wiki 가 한다.
 - 실강의 산출물이 들어가므로 library.local.json 은 .gitignore 다(배포 서버·로컬에서만 생성).
 """
 import json
@@ -41,8 +41,8 @@ def build() -> list:
             m = FM.match(body)
             fm = m.group(1) if m else ""
             status = _field(fm, "status", "draft")
-            if status == "grey":
-                continue
+            # grey(숨김)도 목록에 넣는다 — 뷰어가 status 를 보고 사이드바에서 빼고 휴지통에 보여 준다.
+            # (빼 버리면 다른 브라우저에서 복원할 방법이 없다.) Quartz 빌드에서는 build_wiki 가 뺀다.
             pages.append({
                 "title": _field(fm, "title", p.stem),
                 "status": status,

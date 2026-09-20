@@ -762,6 +762,8 @@
     }
     state.hiddenSlugs.delete(slug);
     save("motga-hidden-slugs", [...state.hiddenSlugs]);
+    const restored = pages.find((p) => p.slug === slug);
+    if (restored && restored.status === "grey") restored.status = "approved";
     sidebar();
     toast("숨긴 노트를 복원했습니다.");
     if (state.view === "trash") show("trash");
@@ -1119,6 +1121,9 @@
       })
       .then((data) => {
         pages.push(...data);
+        // 서버에서 숨긴(status: grey) 페이지는 다른 브라우저에서도 숨김으로 보이고 휴지통에서 복원할 수 있어야 한다.
+        if (!state.mock)
+          for (const p of pages) if (p.status === "grey") state.hiddenSlugs.add(p.slug);
         // 기본 슬러그가 실제 목록에 없으면(강의 교체·삭제) 첫 번째 강의 노트로 떨어뜨린다.
         if (!pages.some((p) => p.slug === state.slug)) {
           const visible = pages.filter((p) => !state.hiddenSlugs.has(p.slug));

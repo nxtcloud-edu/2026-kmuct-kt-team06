@@ -1,6 +1,7 @@
 __pycache__/
 *.pyc
 .env
+.env.*
 *.env
 .adviser/
 .DS_Store

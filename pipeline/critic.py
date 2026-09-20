@@ -9,8 +9,10 @@
       문턱 0.5 미만이면 quote_mismatch(검토함). "🗣 N개 중 M개 통과" 를 남긴다.
   (b) 문단 비평 [모델, 판정은 코드] — 문단·인용마다 {supported, quote_faithful, from_untrusted, evidence}
       JSON 을 서로 다른 모델 2개에 1회씩(critic-review 스킬). 답이 갈리면 8회 표본(PRD §8.8).
-      판정(코드): no 하나라도 / from_untrusted:yes → SUSPENDED(그 문단 ③재작성) ·
-                  partial 만 → 검토함 · 2회 실패 → status: grey.
+      판정(코드): no 하나라도 / from_untrusted:yes → suspended · partial 만 → review.
+      **critic 은 판정만 한다(#70/#72 A).** 자동으로 status:grey 로 강등하지 않는다 —
+      suspended/partial 을 검토함(kind:grey/low_confidence)에 올리고 페이지는 draft 로 둔다.
+      실제 숨김(status:grey)은 사람이 POST /api/review/hide 로 결정한다. ③ 재작성은 compile 몫.
 
 LLM 키가 없으면 (b)는 건너뛰고 (a)만 한다(인용 대조는 항상 코드로 된다). 멈추지 않는다.
 검토함 항목은 CONTRACT §5 /api/review 스키마로 wiki/.critic.jsonl 에 남긴다(우석의 집계가 읽는다).
@@ -184,17 +186,6 @@ def critique_paragraph(unit, lecture):
 
 # ---------- 판정 반영 (코드) ----------
 
-def _set_status_grey(path):
-    p = ROOT / path
-    text = p.read_text(encoding="utf-8")
-    new = re.sub(r"^status:\s*\w+\s*$", "status: grey", text, count=1, flags=re.M)
-    # 훅을 통과시키는 게 이상적이나, grey 전환은 critic(코드) 판정이므로 직접 쓴다(쓰기 루트=이 페이지 자신)
-    if new != text:
-        p.write_text(new, encoding="utf-8")
-        return True
-    return False
-
-
 def _review_item(kind, lecture, slug, anchor, text, reason):
     return {"id": f"{kind}:{slug}:{anchor}", "kind": kind, "lecture": lecture,
             "slug": slug, "anchor": anchor, "text": text[:200], "reason": reason}
@@ -223,16 +214,16 @@ def critique_page(path):
         if v == "suspended":
             suspended.append(u)
             reviews.append(_review_item("grey", lecture, slug, u["anchor"], u["text"],
-                                        "비평: 앵커 구간에서 주장을 뒷받침하지 못함"))
+                                        "비평: 앵커 구간에서 주장을 뒷받침하지 못함 — 사람이 확인 후 [숨기기]"))
         elif v == "review":
             partial.append(u)
             reviews.append(_review_item("low_confidence", lecture, slug, u["anchor"], u["text"],
                                         "비평: 부분 지지 — 사람 확인 필요"))
 
-    # 2회 실패(= suspended 가 있는데 재작성 없이 이 함수는 판정만) → grey 로 내린다
+    # #70/#72(A): critic 은 판정만 한다. 자동으로 status:grey 로 강등하지 않는다.
+    # 페이지는 draft 로 남아 화면에 뜨고, 검토함(kind:grey)에 올라간다 → 사람이
+    # POST /api/review/hide 로 실제 숨김을 결정한다(계약상 재작성은 ③ compile 몫).
     greyed = False
-    if suspended:
-        greyed = _set_status_grey(path)
 
     # 검토함 로그 append
     if reviews:

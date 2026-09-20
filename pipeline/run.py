@@ -52,13 +52,14 @@ def stage_critic(lecture):
     return r.stdout.strip()
 
 
-def run(lecture, title="", course="", src_dir=None, progress=None, on_progress=None):
+def run(lecture, title="", course="", src_dir=None, progress=None, on_progress=None, hold_last=False):
     """전체 파이프라인 ①~⑤를 함수로 실행한다(서버 없이도). api/ingest.py 가 이걸 부른다.
 
     progress(stage, percent, detail="") — 계약 §5 /api/ingest 의 stage 이름
     (upload·stt·align·episodic·compile·build·done·error)에 맞춰 부른다.
     src_dir 은 업로드 파일이 이미 배치된 raw/L{n}/ (여기서는 존재만 전제, 재배치 안 함).
-    반환: {lecture, run, topics:[...], allowed_pages, coverage}
+    hold_last=True 면 마지막 주제 하나를 컴파일하지 않고 남긴다(발표 라이브 시연용, #54).
+    반환: {lecture, run, topics:[...], allowed_pages, coverage, held}
     """
     cb = progress or on_progress or (lambda *a: None)
 
@@ -85,7 +86,13 @@ def run(lecture, title="", course="", src_dir=None, progress=None, on_progress=N
         return {"lecture": lecture, "run": run_id, "topics": [], "allowed_pages": 0,
                 "error": "build_episodic 실패"}
 
-    topics = O.topics_from_episodic(lecture)
+    all_topics = O.topics_from_episodic(lecture)
+    held = None
+    topics = all_topics
+    if hold_last and len(all_topics) > 1:
+        held = all_topics[-1]
+        topics = all_topics[:-1]
+        emit("compile", 30, f"라이브 시연용으로 마지막 주제 s{held[0]}-{held[1]} 는 남긴다")
     results = []
     for i, (s_from, s_to) in enumerate(topics):
         pct = 30 + int(50 * (i + 1) / max(len(topics), 1))
@@ -112,9 +119,11 @@ def run(lecture, title="", course="", src_dir=None, progress=None, on_progress=N
         emit("build", 95, f"빌드 생략: {e}")
 
     allowed = sum(1 for r in results for p in r["pages"] if p["verdict"] == "allow")
-    emit("done", 100, f"주제 {len(topics)}개 · allow 페이지 {allowed}개 · run {run_id}")
+    held_msg = f" · 남긴 주제 s{held[0]}-{held[1]}" if held else ""
+    emit("done", 100, f"주제 {len(topics)}개 · allow 페이지 {allowed}개{held_msg} · run {run_id}")
     return {"lecture": lecture, "run": run_id, "topics": results,
-            "allowed_pages": allowed, "coverage": cov}
+            "allowed_pages": allowed, "coverage": cov,
+            "held": (f"s{held[0]}-{held[1]}" if held else None)}
 
 
 def main():
@@ -124,6 +133,7 @@ def main():
     ap.add_argument("--course", default="")
     ap.add_argument("--topic", default=None, help="s5-6 처럼 주제 하나만 ③ 실행")
     ap.add_argument("--live", action="store_true", help="발표용: 주제 하나만 빠르게")
+    ap.add_argument("--hold-last", action="store_true", help="마지막 주제 하나는 남긴다(라이브 시연용)")
     args = ap.parse_args()
 
     # ③ 주제 하나만
@@ -138,7 +148,7 @@ def main():
         return
 
     # 전체 ①~⑤
-    res = run(args.lecture, args.title, args.course, progress=progress)
+    res = run(args.lecture, args.title, args.course, progress=progress, hold_last=args.hold_last)
     print(json.dumps(res, ensure_ascii=False, indent=1))
 
 

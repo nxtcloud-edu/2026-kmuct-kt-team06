@@ -36,3 +36,18 @@
 3. 필기 저장 422는 버그가 아니라 제품 기능(훅이 막은 것)이다. 빨간 에러 말고 "저장 거부: <사유>"로.
 4. 답변·위키 본문의 `[[L3#s5@t=330]]`는 글자 그대로 오는 앵커 → 정규식으로 찾아 클릭 요소로 바꾸고, 클릭 시 `/api/source`.
 5. 글은 `textContent`로 넣는다(`innerHTML` 금지 — 전사·필기는 신뢰 못 하는 입력).
+
+## 음성 인식 신뢰도 (STT confidence = `agree`) — 2026-09-20 13:45 추가
+**정의**: 모델이 말하는 확신도가 아니다. 같은 녹음을 **두 STT(다글로 × Grok)**로 전사해, 문장/문단마다 글자 단위로 얼마나 겹치는지를 0~1로 잰 값(`tools/stt_agree.py`, LLM 0회). 둘이 다르게 받아 적은 곳 = 잘못 들었을 가능성이 높은 곳.
+**문턱**: `agree < 0.5` = 경고 · 🗣 인용 금지 · 검토함 카드 / `0.5 ≤ agree < 0.8` = 🔈 표시만 / `null` = 측정 전(6자 미만이거나 비교 전사본 없음).
+**데이터 위치**: `raw/L{n}/transcript.json` 각 행의 `agree` 필드. L1은 13:45에 채움(문단 58개 전부 측정, 길이 가중 평균 0.86, 최저 0.56, 0.8 미만 15개, 0.5 미만 0개).
+
+| 어디서 받나 | 모양 | 프론트가 할 일 |
+|---|---|---|
+| `GET /api/dashboard` | `stt`: agree의 **문장 길이 가중 평균**(사람이 고친 문장은 1.0). 전사본에 agree가 하나도 없으면 `null` · `measured.stt`: true/false · `confusing`: `[{lecture,t_start,t_end,text,agree,anchor}]` agree 낮은 순 | `stt===null`이면 "측정 전". 숫자는 **확률처럼 쓰지 말 것** — "전사 일치율 86%"라고 표기. `confusing` 카드의 [재생]=`anchor` 로 점프 |
+| `GET /api/review` | `kind:"stt_uncertain"` 카드: `{id:"stt:L1:<t_start>", text, reason:"전사 일치율 0.42 — 🗣 인용 금지", anchor:null}` — `agree<0.5` 이고 아직 안 고친 문장만 | 카드에 [고치기] → 아래 fix |
+| `POST /api/transcript/fix` | 요청 `{lecture, t_start, text}` → `{ok:true}`. 훅(`fix_transcript`, user) 통과 시 `raw/L{n}/corrections.jsonl`에 덧붙이고 그 문장은 `reviewed` = 점수 1.0. 400 `BAD_LECTURE`·`BAD_REQUEST`, 422 `WRITE_REJECTED` | 저장 후 dashboard·review 다시 불러 숫자·카드 갱신 |
+| 위키 본문 | 컴파일 단계가 `agree<0.5` 문장을 🗣 인용으로 쓰지 않는다(episodic에 `🔈?` 표시) | 없음 |
+| `GET /api/quotes` | ⚠️ SPEC(F-01 AC4)은 `agree\|null` 을 같이 주라고 하지만 **현재 코드는 안 준다**(`tools/quote_search.py`에 agree 없음) | 지금은 🔈 표시 못 함. 필요하면 백엔드에 요청 |
+
+**알려진 한계(발표에서 그대로 말할 것)**: 불일치의 상당수는 오인식이 아니라 **영어 전문용어 표기 차이**다(한쪽은 "Make the common case fast", 다른 쪽은 "메이크 더 커먼 케이스 패스트"). 그래서 이 값은 "틀렸다"가 아니라 **"사람이 먼저 볼 순서"**로만 쓴다.

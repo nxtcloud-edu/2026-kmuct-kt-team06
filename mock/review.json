@@ -1,0 +1,38 @@
+[
+ {
+  "id": "seg:L3:2",
+  "kind": "low_confidence",
+  "lecture": "L3",
+  "slug": "lectures/L3_그래프_탐색",
+  "anchor": "L3#s2@t=180",
+  "text": "인접 행렬은 간선 존재 확인이 O(1)이지만…",
+  "reason": "슬라이드 매칭 불확실 (신뢰도 0.54)"
+ },
+ {
+  "id": "page:concepts/graph-representation",
+  "kind": "grey",
+  "lecture": "L3",
+  "slug": "concepts/graph-representation",
+  "anchor": "L3#s3@t=230",
+  "text": "실무에서는 대부분 인접 리스트를 쓴다고 말한 것으로 보임.",
+  "reason": "비평: grey — 앵커 구간에서 해당 발언을 찾지 못함"
+ },
+ {
+  "id": "hist:concepts/dfs",
+  "kind": "rewritten",
+  "lecture": "L3",
+  "slug": "concepts/dfs",
+  "anchor": "L3#s8@t=520",
+  "text": "되돌아오는 시점에 방문 상태를 정리하면 사이클을 검출할 수 있다.",
+  "reason": "훅 거부 후 재작성됨: paragraph 2 has no anchor"
+ },
+ {
+  "id": "quote:L3:s7:480",
+  "kind": "quote_mismatch",
+  "lecture": "L3",
+  "slug": "lectures/L3_그래프_탐색",
+  "anchor": "L3#s7@t=480",
+  "text": "🗣 \"파이썬은 setrecursionlimit 안 풀면 터져요.\"",
+  "reason": "인용과 전사본 유사도 0.41"
+ }
+]

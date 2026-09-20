@@ -31,6 +31,7 @@
 
 ### T4 (1:30–2:00) 진짜 API + 대시보드
 - `USE_MOCK=false`
+- **검토함**(PRD §4.8, 대시보드 맨 위): `GET /api/review`(목 `mock/review.json`) → "검토 필요 N개" + 카드(사유 배지 · 문장 · [원본 보기]=뷰어 탭으로 `?anchor=` 열기 · [승인]=`POST /api/review/approve` 후 카드 제거, 422면 사유 표시). 성장 그래프는 만들지 않는다
 - `web/notes/dashboard.html`(독립): `/api/stats` 큰 숫자(페이지·링크·필기·approved/draft/grey·**커버리지 N/M**) + `/api/history` 표(REJECTED 빨강), 5초 자동 새로고침
 - **완료 조건**: 패널 두 개가 목 없이 돌고, 대시보드에 REJECTED 줄이 보인다.
 

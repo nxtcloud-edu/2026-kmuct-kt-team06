@@ -425,9 +425,13 @@
           el("small", "v-muted", p.type === "lecture" ? "강의 노트" : "개념 노트"),
         );
         const actions = el("div", "v-trash-actions");
-        actions.append(
-          btn("복원", "v-secondary", () => restoreHiddenNote(p.slug)),
-        );
+        const restoreBtn = btn("복원", "v-secondary", async () => {
+          if (restoreBtn.disabled) return;
+          restoreBtn.disabled = true;
+          const ok = await restoreHiddenNote(p.slug);
+          if (!ok) restoreBtn.disabled = false;
+        });
+        actions.append(restoreBtn);
         row.append(info, actions);
         list.append(row);
       }
@@ -500,7 +504,12 @@
         "v-badge",
         p.status === "approved" ? "✓ 검토 완료" : "◷ 검토 필요",
       ),
-      el("span", "", "L3 · 8개 구간"),
+      // 출처 강의 · 이 노트에 달린 앵커 수 (본문에서 센다 — 고정 문구였던 "L3 · 8개 구간" 대체)
+      el(
+        "span",
+        "",
+        `${[...new Set((p.body.match(/\[\[(L\d+)#s\d+@t=\d+\]\]/g) || []).map((a) => a.slice(2).split("#")[0]))].join("·") || (p.course || "노트")} · 출처 ${(p.body.match(/\[\[L\d+#s\d+@t=\d+\]\]/g) || []).length}곳`,
+      ),
       el("span", "", state.mock ? "샘플 강의" : "강의 노트"),
     );
     const delNoteBtn = btn("🗑  노트 삭제", "v-secondary v-btn-danger", () =>
@@ -558,7 +567,7 @@
       "강의 제목과 노트 본문을 한 번에 검색하세요.",
     );
     const input = el("input", "v-search-input");
-    input.placeholder = "BFS, 그래프, 시간복잡도…";
+    input.placeholder = "레지스터, 머지소트, 캐시…";
     input.setAttribute("aria-label", "노트 검색");
     const results = el("div", "v-results");
     const render = () => {
@@ -735,14 +744,29 @@
     );
     draw();
   }
-  function restoreHiddenNote(slug) {
-    if (!state.hiddenSlugs.has(slug)) return;
+  // 서버 검토 상태 전환(page:<slug>). 샘플 데이터 모드에서는 호출하지 않는다.
+  const reviewCall = (path, slug) =>
+    api(path, {
+      method: "POST",
+      body: JSON.stringify({ id: `page:${slug}` }),
+    });
+  async function restoreHiddenNote(slug) {
+    if (!state.hiddenSlugs.has(slug)) return false;
+    if (!state.mock) {
+      try {
+        await reviewCall("/api/review/approve", slug);
+      } catch (error) {
+        toast(`복원 거부: ${error.message}`);
+        return false;
+      }
+    }
     state.hiddenSlugs.delete(slug);
     save("motga-hidden-slugs", [...state.hiddenSlugs]);
     sidebar();
     toast("숨긴 노트를 복원했습니다.");
     if (state.view === "trash") show("trash");
     else show("note", slug);
+    return true;
   }
   function deleteNote(slug) {
     const p = pages.find((p) => p.slug === slug);
@@ -750,18 +774,36 @@
     const dialog = el("dialog", "v-dialog");
     dialog.append(
       el("h2", "", "노트 숨기기"),
-      el("p", "v-muted", `"${p.title}" 노트를 목록에서 숨기시겠습니까? 새로고침 후에도 유지되며, 휴지통에서 복원할 수 있습니다.`),
+      el("p", "v-muted", `"${p.title}" 노트를 목록에서 숨기시겠습니까? 삭제되는 것이 아니라 검토함으로 옮겨지며, 휴지통에서 언제든 복원할 수 있습니다. 새로고침 후에도 유지됩니다.`),
     );
+    const hideBtn = btn("숨기기", "v-primary v-btn-danger", async () => {
+      if (hideBtn.disabled) return;
+      hideBtn.disabled = true;
+      let onServer = false;
+      if (!state.mock) {
+        try {
+          await reviewCall("/api/review/hide", slug);
+          onServer = true;
+        } catch (error) {
+          hideBtn.disabled = false;
+          toast(`숨기기 거부: ${error.message}`);
+          return;
+        }
+      }
+      state.hiddenSlugs.add(slug);
+      save("motga-hidden-slugs", [...state.hiddenSlugs]);
+      dialog.close();
+      toast(
+        onServer
+          ? `"${p.title}" 노트를 서버 검토함(휴지통)으로 옮겼습니다. 삭제되지 않았습니다.`
+          : `"${p.title}" 노트를 휴지통으로 보냈습니다.`,
+      );
+      const next = pages.find((p) => !state.hiddenSlugs.has(p.slug));
+      if (next) show("note", next.slug);
+      else show("dashboard");
+    });
     dialog.append(
-      btn("숨기기", "v-primary v-btn-danger", () => {
-        state.hiddenSlugs.add(slug);
-        save("motga-hidden-slugs", [...state.hiddenSlugs]);
-        dialog.close();
-        toast(`"${p.title}" 노트를 휴지통으로 보냈습니다.`);
-        const next = pages.find((p) => !state.hiddenSlugs.has(p.slug));
-        if (next) show("note", next.slug);
-        else show("dashboard");
-      }),
+      hideBtn,
       btn("취소", "v-secondary", () => dialog.close()),
     );
     dialog.addEventListener("close", () => dialog.remove());
@@ -833,12 +875,29 @@
       const restoreBtn = btn(
         `↩  숨긴 노트 모두 복원`,
         "v-secondary",
-        () => {
-          state.hiddenSlugs.clear();
-          save("motga-hidden-slugs", []);
+        async () => {
+          if (restoreBtn.disabled) return;
+          restoreBtn.disabled = true;
+          let failed = 0;
+          for (const slug of [...state.hiddenSlugs]) {
+            if (!state.mock) {
+              try {
+                await reviewCall("/api/review/approve", slug);
+              } catch {
+                failed += 1;
+                continue;
+              }
+            }
+            state.hiddenSlugs.delete(slug);
+          }
+          save("motga-hidden-slugs", [...state.hiddenSlugs]);
           dialog.close();
           sidebar();
-          toast("숨긴 노트를 모두 복원했습니다.");
+          toast(
+            failed
+              ? `${failed}개는 서버가 복원을 거부해 휴지통에 남았습니다.`
+              : "숨긴 노트를 모두 복원했습니다.",
+          );
         },
       );
       restoreBtn.style.marginTop = "8px";
@@ -1060,6 +1119,13 @@
       })
       .then((data) => {
         pages.push(...data);
+        // 기본 슬러그가 실제 목록에 없으면(강의 교체·삭제) 첫 번째 강의 노트로 떨어뜨린다.
+        if (!pages.some((p) => p.slug === state.slug)) {
+          const visible = pages.filter((p) => !state.hiddenSlugs.has(p.slug));
+          const first =
+            visible.find((p) => p.type === "lecture") || visible[0] || pages[0];
+          if (first) state.slug = first.slug;
+        }
         show("note");
         const a = new URLSearchParams(location.search).get("anchor");
         if (a) openAnchor(a);

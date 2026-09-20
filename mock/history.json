@@ -2,81 +2,81 @@
  {
   "ts": "2026-09-20T11:21:09",
   "agent": "compile",
+  "tool": "write_page",
   "path": "wiki/lectures/L3_그래프_탐색.md",
   "verdict": "deny",
-  "rule": "R08_unsafe_html",
   "reason": "REJECTED: raw HTML/script is not allowed in wiki content"
  },
  {
   "ts": "2026-09-20T11:21:09",
   "agent": "user",
+  "tool": "write_page",
   "path": "wiki/concepts/bfs.md",
   "verdict": "deny",
-  "rule": "R09_status_only",
   "reason": "REJECTED: user may only change frontmatter 'status:' on wiki pages"
  },
  {
   "ts": "2026-09-20T11:21:09",
   "agent": "user",
+  "tool": "save_note",
   "path": "wiki/notes/L3/s5.md",
   "verdict": "allow",
-  "rule": null,
   "reason": null
  },
  {
   "ts": "2026-09-20T11:21:09",
   "agent": "signal-ingest",
+  "tool": "write_page",
   "path": "wiki/concepts/bfs.md",
   "verdict": "deny",
-  "rule": "R01_write_root",
   "reason": "REJECTED: signal-ingest may only write under ['wiki/signals/'], got 'wiki/concepts/bfs.md'"
  },
  {
   "ts": "2026-09-20T11:21:09",
   "agent": "compile",
+  "tool": "save_note",
   "path": "wiki/notes/L3/s5.md",
   "verdict": "deny",
-  "rule": "R01_write_root",
   "reason": "REJECTED: compile may only write under ['wiki/concepts/', 'wiki/lectures/'], got 'wiki/notes/L3/s5.md'"
  },
  {
   "ts": "2026-09-20T11:21:09",
   "agent": "compile",
+  "tool": "write_page",
   "path": "wiki/concepts/dfs.md",
   "verdict": "allow",
-  "rule": null,
   "reason": null
  },
  {
   "ts": "2026-09-20T11:21:09",
   "agent": "compile",
+  "tool": "write_page",
   "path": "wiki/concepts/dfs.md",
   "verdict": "deny",
-  "rule": "R04_no_anchor",
   "reason": "REJECTED: paragraph without anchor: '되돌아오는 시점에 방문 상태를 정리하면 사이클을 검출할 수 있다.'"
  },
  {
   "ts": "2026-09-20T11:21:09",
   "agent": "compile",
+  "tool": "write_page",
   "path": "wiki/concepts/bfs.md",
   "verdict": "allow",
-  "rule": null,
   "reason": null
  },
  {
   "ts": "2026-09-20T11:21:09",
   "agent": "compile",
+  "tool": "write_page",
   "path": "wiki/lectures/L3_그래프_탐색.md",
   "verdict": "allow",
-  "rule": null,
   "reason": null
  },
  {
   "ts": "2026-09-20T11:21:09",
   "agent": "compile",
+  "tool": "write_page",
   "path": "wiki/lectures/L3_그래프_탐색.md",
   "verdict": "deny",
-  "rule": "R05_dead_anchor",
   "reason": "REJECTED: anchor [[L3#s2@t=999]]: L3 slide 2 has no segment at t=999"
  }
 ]

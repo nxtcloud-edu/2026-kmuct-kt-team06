@@ -11,5 +11,7 @@
   "src": "/raw/L3/L3.mp4"
  },
  "ocr": "BFS: queue 사용, O(V+E)",
- "exists": true
+ "exists": true,
+ "quote": "BFS는 큐를 씁니다",
+ "date": "2026-09-15"
 }

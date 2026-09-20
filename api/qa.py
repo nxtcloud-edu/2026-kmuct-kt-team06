@@ -158,8 +158,18 @@ def answer(question: str, model: str = "fast", context: dict | None = None) -> d
     messages = [{"role": "user", "content": question}]
 
     text = ""
+    result = None
     for _attempt in range(2):  # 앵커 없으면 1회 재생성
-        result = complete("qa", system, messages, model=model)
+        try:
+            result = complete("qa", system, messages, model=model)
+        except Exception as e:  # LLM 실패(키 없음·429·5xx·모델 404) → 서버는 죽지 않는다
+            return {
+                "answer": None, "anchors": [], "notes": [],
+                "unanchored": [question] if question else [],
+                "model": model, "reason": "LLM_ERROR",
+                "message": f"모델 호출 실패: {str(e)[:120]}",
+                "videos": videos,
+            }
         text = result.get("text", "") if isinstance(result, dict) else str(result)
         if _qa_stop(text):
             break

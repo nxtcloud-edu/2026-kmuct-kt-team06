@@ -62,12 +62,23 @@ def run(lecture, title="", course="", src_dir=None, progress=None, on_progress=N
     반환: {lecture, run, topics:[...], allowed_pages, coverage, held}
     """
     cb = progress or on_progress or (lambda *a: None)
+    floor = [0]  # 콜백에 나간 퍼센트의 최댓값 — 한 번 올라간 막대는 내려오지 않는다(#UI 100→44 버그)
 
     def emit(stage, percent, detail=""):
+        if stage != "error":  # 마지막 error 만 예외로 그대로 내보낸다
+            percent = max(int(percent), floor[0])
+            floor[0] = percent
         try:
             cb(stage, percent, detail)
         except TypeError:
             cb(stage, percent)  # detail 없는 콜백도 허용
+
+    def topic_progress(outer_pct):
+        """orchestrator 가 주제 안에서 내는 0/100 을 그대로 흘리지 않는다.
+        퍼센트는 바깥(30..80) 것을 유지하고 안쪽은 설명 문구만 가져온다."""
+        def _cb(_stage, _pct, detail=""):
+            emit("compile", outer_pct, detail)
+        return _cb
 
     run_id = uuid.uuid4().hex[:8]
     emit("upload", 5, f"{lecture} '{title}' 시작 (run {run_id})")
@@ -105,7 +116,8 @@ def run(lecture, title="", course="", src_dir=None, progress=None, on_progress=N
     for i, (s_from, s_to) in enumerate(topics):
         pct = 30 + int(50 * (i + 1) / max(len(topics), 1))
         emit("compile", pct, f"주제 s{s_from}-{s_to} ({i+1}/{len(topics)})")
-        results.append(O.run_compile_topic(lecture, s_from, s_to, run_id, emit, title=title, course=course))
+        results.append(O.run_compile_topic(lecture, s_from, s_to, run_id, topic_progress(pct),
+                                           title=title, course=course))
 
     crit = stage_critic(lecture)
     emit("compile", 88, "비평 " + ("완료" if crit else "생략(critic.py 없음)"))
@@ -125,6 +137,15 @@ def run(lecture, title="", course="", src_dir=None, progress=None, on_progress=N
         build_once()
     except Exception as e:
         emit("build", 95, f"빌드 생략: {e}")
+
+    # 뷰어의 '이런 걸 물어보세요' 캐시 — 새 페이지만 모델 1회씩. 실패해도 런은 성공이다.
+    try:
+        from tools.build_suggestions import build as build_suggestions
+        emit("build", 98, "예상 질문 생성")
+        s = build_suggestions(ROOT, use_llm=True)
+        emit("build", 98, f"예상 질문 생성 {s['generated']}쪽(재사용 {s['reused']})")
+    except Exception as e:
+        emit("build", 98, f"예상 질문 생략: {e}")
 
     allowed = sum(1 for r in results for p in r["pages"] if p["verdict"] == "allow")
     held_msg = f" · 남긴 주제 s{held[0]}-{held[1]}" if held else ""

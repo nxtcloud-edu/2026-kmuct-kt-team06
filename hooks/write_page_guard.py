@@ -42,6 +42,40 @@ def deny(reason): return {"decision": "block", "reason": f"REJECTED: {reason}", 
 def sha(s):       return hashlib.sha256(s.encode()).hexdigest()[:12]
 def body(c):      return c.split("---", 2)[-1] if c.count("---") >= 2 else c
 
+def fm_body(c):
+    """'---' 프론트매터와 본문을 나눈다 → (fm|None, body). 프론트매터가 없으면 (None, c)."""
+    if not c.startswith("---"):
+        return None, c
+    parts = c.split("---", 2)
+    if len(parts) < 3:
+        return None, c
+    return parts[1], parts[2]
+
+TITLE_CTRL = re.compile(r"[\x00-\x1f\x7f]")
+
+def check_user_title(raw):
+    """사용자가 바꾼 프론트매터 title 값 검사. 반환: 거부 사유 | None.
+    반드시 큰따옴표로 감싼 한 줄(따옴표·역슬래시는 이스케이프) — 따옴표 없는 ': ' 가 Quartz 빌드를 깨뜨린다(R03)."""
+    v = (raw or "").strip()
+    if len(v) < 2 or v[0] != '"' or v[-1] != '"':
+        return "frontmatter title must be wrapped in double quotes"
+    try:
+        s = json.loads(v)
+    except (json.JSONDecodeError, ValueError):
+        return "frontmatter title is not a valid double-quoted string"
+    if not isinstance(s, str):
+        return "frontmatter title is not a valid double-quoted string"
+    t = s.strip()
+    if not 1 <= len(t) <= 80:
+        return "frontmatter title must be 1-80 characters"
+    if TITLE_CTRL.search(s):
+        return "frontmatter title must not contain control characters"
+    if "[[" in s or "]]" in s:
+        return "frontmatter title must not contain '[[' or ']]'"
+    if "<" in s or ">" in s:
+        return "frontmatter title must not contain '<' or '>'"
+    return None
+
 RAW = ROOT / "raw"
 
 def source_exists(L, s, t):
@@ -141,10 +175,34 @@ def check(ev):
                 return deny("note anchor missing or points to no segment")
             if ANCHOR.search(body(content)):
                 return deny("notes cannot contain source anchors")
-        else:  # 검토함 승인: 프론트매터 status 한 줄만 바꿀 수 있다
-            strip = lambda c: re.sub(r"^status:.*$", "status:", c, flags=re.M)
-            if not old_text or strip(old_text) != strip(content):
-                return deny("user may only change frontmatter 'status:' on wiki pages")
+        else:  # 검토함 승인·제목 바꾸기: 프론트매터 status:/title: 두 줄만 바꿀 수 있다
+            # status:/title: 줄은 통째로 빼고 나머지가 같은지 본다(없던 title: 을 새로 붙이는 것도 허용)
+            strip = lambda c: re.sub(r"^(status|title):.*\n?", "", c, flags=re.M)
+            if not old_text:
+                return deny("user may only change frontmatter 'status:'/'title:' on wiki pages")
+            old_fm, old_body = fm_body(old_text)
+            new_fm, new_body = fm_body(content)
+            if old_fm is None or new_fm is None:
+                # 프론트매터가 없는 파일 — 예전처럼 status 한 줄만 허용한다
+                if re.sub(r"^status:.*$", "status:", old_text, flags=re.M) != re.sub(r"^status:.*$", "status:", content, flags=re.M):
+                    return deny("user may only change frontmatter 'status:'/'title:' on wiki pages")
+            else:
+                # 본문은 한 바이트도 달라질 수 없고, 프론트매터는 status:/title: 줄 말고는 그대로여야 한다
+                if old_body != new_body or strip(old_fm) != strip(new_fm):
+                    return deny("user may only change frontmatter 'status:'/'title:' on wiki pages")
+                if (len(re.findall(r"^title:", new_fm, re.M)) > 1
+                        or len(re.findall(r"^status:", new_fm, re.M)) > 1):
+                    return deny("user may only change frontmatter 'status:'/'title:' on wiki pages (한 줄씩만)")
+                nt = re.search(r"^title:(.*)$", new_fm, re.M)
+                ot = re.search(r"^title:(.*)$", old_fm, re.M)
+                if ot is not None and nt is None:   # 제목 줄을 지우는 것은 '바꾸기'가 아니다
+                    return deny("user may only change frontmatter 'status:'/'title:' on wiki pages")
+                if re.search(r"^status:", old_fm, re.M) and not re.search(r"^status:", new_fm, re.M):
+                    return deny("user may only change frontmatter 'status:'/'title:' on wiki pages")
+                if nt and (ot is None or nt.group(1) != ot.group(1)):
+                    err = check_user_title(nt.group(1))
+                    if err:
+                        return deny(err)
         log({"agent": agent, "tool": tool, "path": path, "verdict": "allow",
              "beforeSha": sha(old_text), "afterSha": sha(content), "beforeContent": old_text, "afterContent": content})
         return {"decision": "allow"}

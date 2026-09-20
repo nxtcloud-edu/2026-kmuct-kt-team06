@@ -34,6 +34,7 @@ from api import qa as qa_mod  # noqa: E402
 from api import youtube as yt_mod  # noqa: E402
 from api import dashboard as dashboard_mod  # noqa: E402
 from api import ingest as ingest_mod  # noqa: E402
+from api import pages as pages_mod  # noqa: E402
 
 DEMO_TOKEN = os.environ.get("DEMO_TOKEN")  # 있으면 쓰기·과금 경로에 X-Demo-Token 요구(§5.4)
 
@@ -248,6 +249,19 @@ def api_review_hide(params, query, body):
     raise ApiError(status, code, message)
 
 
+@route("POST", r"/api/page/rename")
+def api_page_rename(params, query, body):
+    """{id:'page:<slug>', title} → 프론트매터 title: 한 줄만 바꾼다(agent:user 훅 통과 시).
+    파일 이름·slug 는 그대로 — 앵커·링크가 깨지지 않는다. 응답 {ok,slug,title}."""
+    if not isinstance(body, dict):
+        raise ApiError(400, "BAD_REQUEST", "JSON body required")
+    ok, result = pages_mod.rename(body.get("id", ""), body.get("title", ""))
+    if ok:
+        return 200, result
+    status, code, message = result
+    raise ApiError(status, code, message)
+
+
 # ── HTTP 핸들러 ────────────────────────────────────────────────
 class Handler(BaseHTTPRequestHandler):
     server_version = "karonton/0.1"
@@ -271,7 +285,7 @@ class Handler(BaseHTTPRequestHandler):
 
     # 쓰기·과금 경로 — DEMO_TOKEN 이 설정돼 있으면 X-Demo-Token 일치 필요(§5.4)
     _PROTECTED = {("POST", "/api/notes"), ("POST", "/api/qa"), ("POST", "/api/review/approve"),
-                  ("POST", "/api/review/hide"),
+                  ("POST", "/api/review/hide"), ("POST", "/api/page/rename"),
                   ("POST", "/api/transcript/fix"), ("POST", "/api/ingest")}
 
     def _check_token(self, method: str, path: str) -> bool:

@@ -92,7 +92,7 @@ LLM 패널은 **위키에만 근거해** 답한다. 그 답변 **아래**에 "�
 # pipeline/llm.py — 공급자 어댑터 1개. 에이전트 코드는 이것만 안다
 complete(role: "strong"|"fast", system, messages, tools) -> {text, tool_calls}
 ```
-환경변수 `LLM_PROVIDER=openai|anthropic|gemini|grok`, `LLM_STRONG`, `LLM_FAST` 로 바꾼다. 코드 수정 없음.
+환경변수 `LLM_PROVIDER=openai|anthropic|gemini`, `LLM_STRONG`, `LLM_FAST` 로 바꾼다. 코드 수정 없음.
 
 | 역할 | 하는 일 | OpenAI로 가면 | Claude로 가면 |
 |---|---|---|---|
@@ -104,7 +104,7 @@ complete(role: "strong"|"fast", system, messages, tools) -> {text, tool_calls}
 - ⚠️ **"gpt-4"(및 gpt-4o·gpt-4.1 본체)는 무료 목록에 없다 → 과금.** 팀이 말한 "gpt-4"는 `gpt-4.1-mini`로 읽는다. "gpt-mini-o4"는 `o4-mini`.
 - ⚠️ 무료 티어는 **데이터 공유 조건**으로 보임 → 공개 강의 전사본만 보낸다. 필기(notes)는 컴파일 입력에서 빼거나 Claude 쪽으로만.
 - o4-mini는 추론 모델이라 느리다(페이지당 수십 초). 현장 시연은 **미리 컴파일한 결과 + 라이브로 1페이지만**.
-- 🆕 **Grok(xAI) API 사용 예정**(9/20 팀장). xAI API는 OpenAI 호환 형식이라 어댑터에서는 `base_url=https://api.x.ai/v1` + `XAI_API_KEY` 만 바꾸면 된다 → 추가 비용 거의 0. 역할(기본 모델 / 패널 선택지 / TTS)은 ❓ 미정.
+- 🆕 **Grok(xAI) API = STT 전용**(9/20 팀장 확정). LLM 공급자가 아니다. ① 적재에서 녹음 → 타임스탬프 전사본. 입력 경로는 둘: **(a) 다글로 전사본(이미 있음, 데모 기본값)** (b) 녹음 업로드 → Grok STT(`pipeline/stt.py`, `XAI_API_KEY`). 둘 다 같은 중간 형식 `raw/L{n}/transcript.json [{t_start, t_end, text}]` 으로 맞춘 뒤 ②로 넘긴다 → ② 이후는 입력이 뭐였는지 모른다. ❓ xAI STT 엔드포인트·타임스탬프 단위·한국어 품질·파일 크기 한도는 현장에서 문서로 확인(미검증). 데모는 (a)로 미리 돌려 두고 (b)는 1분짜리 클립으로 "된다"만 보여 준다.
 - 🆕 **Gemini API도 후보**(팀장: 한도는 적지만 쓸 수 있음). 한도가 작으므로 **배치 컴파일에는 쓰지 않고 LLM 패널의 선택지 1개(fast)로만** 둔다 — 429가 나면 어댑터가 OpenAI로 자동 폴백. 정확한 모델명·한도는 키 발급 화면에서 확인 후 `LLM_FAST`에 넣는다(❓).
 - ✅ 팀장 확인: **OpenAI·Gemini·Anthropic 키 3종 다 있음.** → 배치 컴파일 strong = Sonnet 5(앵커 정확도 우선) 또는 o4-mini(무료), fast = gpt-5.4-nano(무료). LLM 패널 드롭다운에 3종 노출. 키는 EC2 환경변수로만.
 
@@ -121,6 +121,7 @@ complete(role: "strong"|"fast", system, messages, tools) -> {text, tool_calls}
 [pipeline/ (규찬)]  결정적 오케스트레이터: ①적재 → ②정렬 → ③컴파일 → (④비평)
      │  모든 쓰기 = AgentGuard → WritePolicy → AuditLog(.history.jsonl)
      ├──▶ pipeline/llm.py ──▶ OpenAI · Anthropic · Gemini   (Bedrock ✗)
+     ├──▶ 🆕 Grok STT (녹음 → transcript.json) · 다글로 전사본도 같은 형식으로
      ├──▶ 🆕 TranscriptAPI (보충 영상 검색만, 캐시 raw/.ytcache/)
      └──▶ 로컬 디스크: wiki/*.md 정본 · raw/
 ```
@@ -148,7 +149,7 @@ complete(role: "strong"|"fast", system, messages, tools) -> {text, tool_calls}
 
 ## 9. 결정 기록 · 남은 질문
 
-**9/20 오전 팀장 결정**: 뷰어 = Quartz 5 · 서버 = EC2 m5.large · LLM 키 3종(OpenAI·Gemini·Anthropic) 보유 · LLM 패널 = 위키 한정 · 유튜브 = 보충 추천(교수 채널 먼저) · 영상 = 오른쪽 위 미니 플레이어 → 클릭 시 split(위 영상 / 아래 필기).
+**9/20 오전 팀장 결정**: Grok = STT 전용(다글로 전사본 병행) · 배포 = EC2에서 git pull · 디스코드 승인은 팀원도 가능 · 뷰어 = Quartz 5 · 서버 = EC2 m5.large · LLM 키 3종(OpenAI·Gemini·Anthropic) 보유 · LLM 패널 = 위키 한정 · 유튜브 = 보충 추천(교수 채널 먼저) · 영상 = 오른쪽 위 미니 플레이어 → 클릭 시 split(위 영상 / 아래 필기).
 
 남은 것
 1. **원격 저장소 주소** — 아직 로컬뿐이라 팀원에게 order를 못 보냈다.

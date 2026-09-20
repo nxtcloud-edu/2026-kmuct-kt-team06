@@ -52,6 +52,71 @@ def stage_critic(lecture):
     return r.stdout.strip()
 
 
+def run(lecture, title="", course="", src_dir=None, progress=None, on_progress=None):
+    """전체 파이프라인 ①~⑤를 함수로 실행한다(서버 없이도). api/ingest.py 가 이걸 부른다.
+
+    progress(stage, percent, detail="") — 계약 §5 /api/ingest 의 stage 이름
+    (upload·stt·align·episodic·compile·build·done·error)에 맞춰 부른다.
+    src_dir 은 업로드 파일이 이미 배치된 raw/L{n}/ (여기서는 존재만 전제, 재배치 안 함).
+    반환: {lecture, run, topics:[...], allowed_pages, coverage}
+    """
+    cb = progress or on_progress or (lambda *a: None)
+
+    def emit(stage, percent, detail=""):
+        try:
+            cb(stage, percent, detail)
+        except TypeError:
+            cb(stage, percent)  # detail 없는 콜백도 허용
+
+    run_id = uuid.uuid4().hex[:8]
+    emit("upload", 5, f"{lecture} '{title}' 시작 (run {run_id})")
+
+    fg = stage_frameguard(lecture)
+    emit("align", 10, f"FrameGuard: {fg['decision']}")
+    if fg["decision"] != "allow":
+        emit("error", 10, fg.get("reason", "FrameGuard block"))
+        return {"lecture": lecture, "run": run_id, "topics": [], "allowed_pages": 0,
+                "error": fg.get("reason", "FrameGuard block")}
+
+    ok, msg = stage_episodic(lecture)
+    emit("episodic", 30, msg or "episodic 생성")
+    if not ok:
+        emit("error", 30, "build_episodic 실패")
+        return {"lecture": lecture, "run": run_id, "topics": [], "allowed_pages": 0,
+                "error": "build_episodic 실패"}
+
+    topics = O.topics_from_episodic(lecture)
+    results = []
+    for i, (s_from, s_to) in enumerate(topics):
+        pct = 30 + int(50 * (i + 1) / max(len(topics), 1))
+        emit("compile", pct, f"주제 s{s_from}-{s_to} ({i+1}/{len(topics)})")
+        results.append(O.run_compile_topic(lecture, s_from, s_to, run_id, emit))
+
+    crit = stage_critic(lecture)
+    emit("compile", 88, "비평 " + ("완료" if crit else "생략(critic.py 없음)"))
+
+    cov = {"covered": 0, "total": 0}
+    try:
+        from tools.coverage import coverage
+        cov = coverage(write=True)
+        emit("compile", 92, f"커버리지 {cov['covered']}/{cov['total']}")
+    except Exception as e:
+        emit("compile", 92, f"커버리지 계산 생략: {e}")
+
+    # ⑤ 빌드 — wiki → public (gitignore 우회 래퍼)
+    try:
+        from tools.build_wiki import build_once
+        emit("build", 95, "Quartz 빌드")
+        build_once()
+    except Exception as e:
+        emit("build", 95, f"빌드 생략: {e}")
+
+    allowed = sum(1 for r in results for p in r["pages"] if p["verdict"] == "allow")
+    emit("done", 100, f"주제 {len(topics)}개 · allow 페이지 {allowed}개 · run {run_id}")
+    return {"lecture": lecture, "run": run_id, "topics": results,
+            "allowed_pages": allowed, "coverage": cov}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("lecture")
@@ -60,56 +125,21 @@ def main():
     ap.add_argument("--topic", default=None, help="s5-6 처럼 주제 하나만 ③ 실행")
     ap.add_argument("--live", action="store_true", help="발표용: 주제 하나만 빠르게")
     args = ap.parse_args()
-    lecture, run = args.lecture, uuid.uuid4().hex[:8]
 
     # ③ 주제 하나만
     if args.topic or args.live:
-        rng = O.parse_topic(args.topic) if args.topic else (O.topics_from_episodic(lecture) or [(0, 0)])[0]
+        run_id = uuid.uuid4().hex[:8]
+        rng = O.parse_topic(args.topic) if args.topic else (O.topics_from_episodic(args.lecture) or [(0, 0)])[0]
         if not rng:
             sys.exit("--topic s5-6 형식으로")
-        progress("compile", 0, f"라이브 주제 {rng[0]}-{rng[1]} 시작 (run {run})")
-        res = O.run_compile_topic(lecture, rng[0], rng[1], run, progress)
+        progress("compile", 0, f"라이브 주제 {rng[0]}-{rng[1]} 시작 (run {run_id})")
+        res = O.run_compile_topic(args.lecture, rng[0], rng[1], run_id, progress)
         print(json.dumps(res, ensure_ascii=False, indent=1))
         return
 
     # 전체 ①~⑤
-    progress("upload", 5, f"{lecture} '{args.title}' 시작 (run {run})")
-
-    fg = stage_frameguard(lecture)
-    progress("align", 10, f"FrameGuard: {fg['decision']}")
-    if fg["decision"] != "allow":
-        progress("error", 10, fg.get("reason", "FrameGuard block"))
-        sys.exit(2)
-
-    ok, msg = stage_episodic(lecture)
-    progress("episodic", 30, msg or "episodic 생성")
-    if not ok:
-        progress("error", 30, "build_episodic 실패")
-        sys.exit(2)
-
-    topics = O.topics_from_episodic(lecture)
-    results = []
-    for i, (s_from, s_to) in enumerate(topics):
-        pct = 30 + int(60 * (i + 1) / max(len(topics), 1))
-        progress("compile", pct, f"주제 s{s_from}-{s_to} ({i+1}/{len(topics)})")
-        res = O.run_compile_topic(lecture, s_from, s_to, run, progress)
-        results.append(res)
-
-    crit = stage_critic(lecture)
-    progress("compile", 92, "비평 " + ("완료" if crit else "생략(critic.py 없음)"))
-
-    # ⑤ CoverageCheck (격리형) — signals 항목 grep → coverage.md
-    try:
-        from tools.coverage import coverage
-        cov = coverage(write=True)
-        progress("compile", 96, f"커버리지 {cov['covered']}/{cov['total']}")
-    except Exception as e:
-        progress("compile", 96, f"커버리지 계산 생략: {e}")
-
-    allowed = sum(1 for r in results for p in r["pages"] if p["verdict"] == "allow")
-    progress("done", 100, f"주제 {len(topics)}개 · allow 페이지 {allowed}개 · run {run}")
-    print(json.dumps({"lecture": lecture, "run": run, "topics": results, "allowed_pages": allowed},
-                     ensure_ascii=False, indent=1))
+    res = run(args.lecture, args.title, args.course, progress=progress)
+    print(json.dumps(res, ensure_ascii=False, indent=1))
 
 
 if __name__ == "__main__":

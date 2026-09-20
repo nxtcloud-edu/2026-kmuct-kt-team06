@@ -27,7 +27,9 @@
     anchor: null,
     files: [],
     local: read("motga-documents", []),
-    mock: read("motga-mock", true),
+    // 기본은 실서버(/api). 저장된 설정이 없는 새 브라우저(발표장·심사위원)가 샘플 응답을 보지 않게 한다.
+    // API 없이 화면만 개발할 때는 설정(⚙)에서 "샘플 데이터"를 켠다.
+    mock: read("motga-mock", false),
     hiddenSlugs: new Set(read("motga-hidden-slugs", [])),
     page: null,
   };

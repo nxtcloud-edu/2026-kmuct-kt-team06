@@ -194,12 +194,10 @@
   }
   function sidebar() {
     nav.replaceChildren();
-    nav.append(
-      el("div", "v-brand", "motga."),
-      el("div", "v-workspace", "M  /  나의 학습 공간"),
-    );
+    const brand = el("div", "v-brand");
+    brand.append(el("span", "v-brand-mark"), el("span", "v-brand-word", "Lecki"));
+    nav.append(brand, el("div", "v-workspace", "Lecki의 lecture note"));
     const search = btn("⌕   검색", "v-nav", () => show("search"));
-    search.append(el("kbd", "", "Ctrl K"));
     nav.append(search);
     nav.append(
       btn(
@@ -263,9 +261,12 @@
       nav.append(item);
     }
     const bottom = el("div", "v-sidebar-bottom");
-    bottom.append(el("div", "v-library-tip", "배운 모든 것이,\n연결되는 곳."));
     bottom.append(btn("＋  강의 자료 추가", "v-add", () => show("upload")));
-    const profile = btn("M   나의 프로필  ⚙", "v-profile", settings);
+    const profile = btn("", "v-profile", settings);
+    const profileAvatar = el("span", "v-profile-avatar", "L");
+    const profileName = el("span", "v-profile-name", "Lecki");
+    const profileGear = el("span", "v-profile-gear", "⚙");
+    profile.append(profileAvatar, profileName, profileGear);
     profile.append(el("small", "", "개인 학습 공간"));
     bottom.append(profile);
     nav.append(bottom);
@@ -287,6 +288,7 @@
         "대시보드",
         "내 강의의 근거를 확인하고, 더 정확한 노트로 만들어 보세요.",
       );
+
       emit("dashboard-open", { main });
       return;
     }
@@ -374,7 +376,7 @@
     state.slug = p.slug;
     sidebar();
     heading(
-      "내 라이브러리  /  알고리즘  /  강의 노트",
+      "",
       p.title,
       "2026년 9월 20일  ·  원본과 연결된 나의 지식",
     );
@@ -428,6 +430,12 @@
     );
     summary.append(summaryText);
     main.append(summary);
+
+    const noteFooter = el("footer", "v-note-footer");
+    noteFooter.append(
+      el("div", "", "CONNECT EVERYTHING, SORT EVERYTHING"),
+    );
+    main.append(noteFooter);
   }
   app.show = show;
   function searchView() {

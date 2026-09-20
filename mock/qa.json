@@ -1,0 +1,35 @@
+{
+ "answer": "BFS는 큐를 써서 가까운 정점부터 방문하고, 인접 리스트 기준 시간복잡도는 O(V+E)다.",
+ "anchors": [
+  "[[L3#s5@t=330]]",
+  "[[L3#s5@t=338]]"
+ ],
+ "notes": [
+  {
+   "anchor": "L3#s5@t=340",
+   "text": "큐에 넣을 때 방문 표시! 꺼낼 때 하면 중복 들어감"
+  }
+ ],
+ "unanchored": [],
+ "model": "fast",
+ "videos": [
+  {
+   "videoId": "PROF0000001",
+   "title": "[알고리즘] 5주차 그래프 탐색 BFS",
+   "channel": "교수님 채널",
+   "duration": "48:12",
+   "thumbnail": "https://i.ytimg.com/vi/PROF0000001/mqdefault.jpg",
+   "url": "https://www.youtube.com/watch?v=PROF0000001",
+   "source": "professor"
+  },
+  {
+   "videoId": "SRCH0000001",
+   "title": "BFS 10분 정리",
+   "channel": "코딩 채널",
+   "duration": "10:03",
+   "thumbnail": "https://i.ytimg.com/vi/SRCH0000001/mqdefault.jpg",
+   "url": "https://www.youtube.com/watch?v=SRCH0000001",
+   "source": "search"
+  }
+ ]
+}

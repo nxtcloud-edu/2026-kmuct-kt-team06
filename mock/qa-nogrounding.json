@@ -1,0 +1,22 @@
+{
+ "answer": null,
+ "anchors": [],
+ "notes": [],
+ "unanchored": [
+  "다익스트라"
+ ],
+ "model": "fast",
+ "reason": "NO_GROUNDING",
+ "message": "위키에 근거가 없습니다. 아직 이 내용을 다룬 강의가 들어오지 않았습니다.",
+ "videos": [
+  {
+   "videoId": "PROF0000002",
+   "title": "[알고리즘] 6주차 최단경로",
+   "channel": "교수님 채널",
+   "duration": "51:40",
+   "thumbnail": "https://i.ytimg.com/vi/PROF0000002/mqdefault.jpg",
+   "url": "https://www.youtube.com/watch?v=PROF0000002",
+   "source": "professor"
+  }
+ ]
+}

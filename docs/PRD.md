@@ -34,7 +34,7 @@
 **대상**: 녹화 강의(또는 유튜브 강의)로 복습하는 대학생. 1차 페르소나 = 전공 6과목을 패드로 필기하는 2학년.
 
 **핵심 시나리오 (데모 동선 = 이 순서)**
-1. **넣기** — 유튜브에서 강의를 검색해 고르거나(§5), 가진 mp4·전사본을 올린다.
+1. **넣기** — 가진 강의 영상·전사본·슬라이드를 넣는다.
 2. **쌓이기** — 에이전트들이 전사본을 구간에 맞추고, 개념 페이지로 컴파일한다. 앵커 없는 문장은 훅이 거부한다.
 3. **보기** — 위키 문장 클릭 → 그 프레임 + 영상의 그 초.
 4. **적기** — 영상이 구간 끝에서 멈춤 → 프레임 옆에 필기 → 저장. 필기에는 코드가 앵커를 붙인다.
@@ -52,87 +52,37 @@
 
 | 우선 | 기능 | 레인 | 상태 |
 |---|---|---|---|
-| **P0** | 위키 렌더 + 앵커 클릭 → 프레임·영상 초 점프 | front-dongwook | 목으로 출발 가능 |
+| **P0** | Quartz 위키 + 앵커 칩 → 미니 플레이어 점프 → split | front-dongwook | 실측 완료, 목으로 출발 가능 |
 | **P0** | 구간 끝 자동 정지 → 필기 패널 → 저장 | front-dongwook + front-minsu | 이벤트 계약 확정 |
-| **P0** | API 8종 + `POST /notes`를 WritePolicy 훅에 태우기 | back-wooseok | 샘플 wiki로 출발 가능 |
+| **P0** | 단일 서버(Quartz 결과 + JS 주입 + API) + `POST /notes`를 WritePolicy 훅에 태우기 | back-wooseok | 샘플 wiki로 출발 가능 |
 | **P0** | ②정렬 → ③컴파일 1회 완주 + `.history.jsonl` | back-kyuchan | 훅·도구 검증됨, 오케스트레이터만 없음 |
 | **P0** | 대시보드: 성장 숫자 + 반려 로그 | front-minsu | 목으로 출발 가능 |
-| **P1 🆕** | **유튜브 검색 → 골라서 넣기** (§5) | back-wooseok(API) + front-minsu(검색 UI) + back-kyuchan(적재) | 신규 |
+| **P1 🆕** | 유튜브 **보충 추천** 카드 — LLM 답변 아래, 교수 채널 먼저 (§5) | back-wooseok + front-minsu | 신규 |
 | P1 | ④비평 → approved/grey 배지 | back-kyuchan | 프롬프트 있음 |
 | P1 | signals 적재 + 커버리지 N/M | back-kyuchan | 샘플 데이터 있음 |
 | **P1 🆕** | ⑦ QA = 오른쪽 LLM 패널 (grep + 링크 1홉, 앵커 없는 답 거부, 모델 선택) (§4.5) | back-wooseok(API) + front-minsu(패널) | 스케치 확정 |
 | 안 함 | 퀴즈⑥ · 벡터 검색 · TTS · InklingSync · revert UI · 로그인 | — | 3시간 컷 밖 |
 
-## 4.5 🆕 화면 레이아웃 (팀장 스케치 9/20 09:19)
+## 4.5 화면 — Quartz 위에 얹는다 (9/20 팀장 결정)
 
-```
-┌──────────┬───────────────────────┬──────────────────────┬─────────────┐
-│ [◀ 접기] │                       │  영상 / 프레임        │ [접기 ▶]    │
-│ 페이지    │   위키 본문 (md)       │  ───────────────     │  LLM        │
-│ 목록      │   문장 끝 앵커 칩      │  필기 (#note-slot)    │  답변이      │
-│ · bfs    │   클릭 → 오른쪽 점프   │                      │  위로 쌓임   │
-│ · dfs    │                       │      split           │             │
-│          │                       │  (가운데 경계 드래그)  │ ┌─────────┐ │
-│          │                       │                      │ │질문 입력  │ │
-│ 설정      │                       │                      │ │+ ⚙ 모델▾ ➤│ │
-└──────────┴───────────────────────┴──────────────────────┴─────────────┘
-   sidebar        wiki (md)              split pane           chat
-```
+**옵시디언은 오픈소스가 아니다**(무료지만 소스 비공개, 수정·재배포 불가). 그래서 "옵시디언 볼트를 웹으로 내는" 오픈소스 **Quartz 5 (MIT)** 를 쓴다. `wiki/` 는 그대로 옵시디언 볼트로도 열린다.
 
-- **4열**: 사이드바(접힘) · 위키 본문 · split(영상/프레임 + 필기) · LLM 패널(접힘). 본문↔split 경계는 드래그로 조절.
-- **LLM 패널 = 위키에 묻는 칸.** 입력창은 패널 **맨 아래 고정**, 답변은 **그 위로** 쌓인다. 입력창 모양은 Gemini 입력창 참고(`2026-09-20_09.46.59.png`): 한 줄 입력 + 왼쪽 `＋`(지금 보는 페이지·구간을 질문에 첨부) · `⚙` · 오른쪽 **모델 선택 드롭다운(`Pro ▾`)** · 전송.
-- 모델 드롭다운은 §6 어댑터와 직결: `fast`/`strong` × 공급자. 발표 때 "모델을 바꿔도 훅은 같다"를 한 번의 클릭으로 보여 준다.
-- 답변 안의 앵커도 본문과 같은 칩 → 클릭하면 split이 점프(`anchor-open` 이벤트 재사용). **앵커 없는 답변은 QAStop 훅이 거부**하므로 패널에는 "근거를 못 찾았습니다"가 뜬다.
-- 답변 끝 "내 필기:" 블록(필기는 앵커가 아니라 따로 표시).
+- **Quartz가 그리는 것**: 위키 본문 · 왼쪽 탐색기 · 검색 · 백링크 · 그래프 · 다크 모드. → 우리는 안 만든다.
+- **우리가 얹는 것**: 앵커 칩 · 오른쪽 위 **미니 플레이어**(Aside의 PiP처럼 작게) → 누르면 **split**(위 영상·프레임 / 아래 필기) · 맨 오른쪽 **LLM 패널**(입력창 맨 아래 고정, 답변은 위로 쌓임, Gemini식 입력창 = `＋` · 모델 드롭다운 · 전송).
+- **얹는 방법**: Quartz 소스를 고치지 않는다. 서버가 모든 HTML의 `</body>` 앞에 우리 JS/CSS 5줄을 **주입**한다. Quartz는 SPA라 초기화는 `nav` 이벤트에 건다.
 
-**레인 영향** (CONTRACT §7 추가분)
-- 4열 껍데기와 접기·드래그 = `front-dongwook`(`web/viewer/index.html`). 빈 슬롯 2개를 둔다: `<aside id="note-slot">`, `<aside id="chat-slot">`.
-- LLM 패널 내부 = `front-minsu`(`web/notes/chat.js` → `#chat-slot`). 대시보드는 T3 한 칸으로 줄인다.
-- `POST /api/qa` 가 **P2 → P1** 로 올라간다(`back-wooseok` T4). 요청에 `{question, model, context:{slug, anchor}}` 추가.
+✅ **9/20 오전 실측**: Quartz 5.0.0, Node ≥22. `npm ci` 10초 · 빌드 5초(이후 0.5초) · `--watch` 있음 → 파이프라인이 `wiki/` 에 쓰면 몇 초 뒤 화면에 뜬다(= "위키가 자란다" 장면). 주입 서버 `tools/devserve.py` 동작 확인.
+⚠️ **실측으로 찾은 함정**: Quartz가 우리 앵커 `[[L3#s5@t=330]]` 를 위키링크로 오해해 `<a class="internal">L3 > s5@t=330</a>` 로 그린다 → `viewer.js` 가 이 패턴의 링크를 앵커 칩으로 바꿔치기한다(CONTRACT §7.2). 파일 속 앵커 규약은 안 바뀐다.
+⚠️ 위험: Quartz 5는 나온 지 얼마 안 된 메이저 버전이고 빌드 때 커뮤니티 플러그인을 네트워크로 받는다. EC2에서 0:00에 빌드부터 확인하고, 안 되면 `public/` 을 맥에서 빌드해 올린다.
 
-## 5. 🆕 유튜브 검색 → 넣기
+## 5. 유튜브 = 보충 추천 (입력 경로 아님 — 9/20 팀장 결정)
 
-### 5.1 왜 넣나
-"녹화본을 가진 학생"만 쓸 수 있으면 대상이 좁다. 유튜브 검색이 붙으면 **입력 0개에서 시작**할 수 있고(공개 강의·교수 공식 채널), 데모도 "검색 → 고름 → 위키가 생김"으로 첫 30초가 선다. ⚠️ 가정: 이 기능은 **보충 영상 추천이 아니라 입력 경로**다(§9 질문 4).
+LLM 패널은 **위키에만 근거해** 답한다. 그 답변 **아래**에 "관련 영상" 카드 2~3개가 붙는다. **교수님 채널 검색 결과가 먼저**, 그다음 일반 검색. 위키에 근거가 없을 때는 "위키에 근거 없음" + 영상 카드만 나온다 — 모르는 걸 지어내는 대신 볼 곳을 알려 준다.
 
-### 5.2 흐름
-```
-검색창 "BFS 알고리즘 강의"
-  → GET /api/youtube/search?q=         후보 10개 (제목·채널·길이·썸네일·자막 유무)
-  → 사용자가 1개 고름
-  → POST /api/ingest {videoId}          전사본(타임스탬프 포함) 가져와 raw/L{n}/ 에 적재
-  → ① 적재: 전사본을 구간으로 자름 → segments.json (kind:"yt")
-  → ②③ 파이프라인 그대로 → 위키 페이지
-  → 뷰어: YouTube IFrame 플레이어, 앵커 클릭 = seekTo(t)
-```
-
-### 5.3 라이브러리 판단 (✅ 9/20 오전 저장소 직접 확인)
-
-| 후보 | 실체 | 판단 |
-|---|---|---|
-| `ZeroPointRepo/youtube-skills` | ⭐886, 9/15 푸시. **TranscriptAPI.com(유료 SaaS)을 부르는 스킬 묶음.** 검색·전사본·채널·재생목록. 무료 100크레딧(이메일 OTP 가입). yt-dlp·헤드리스 브라우저 없이 HTTP 한 번 | **1순위.** 스킬째 설치하지 말고 **TranscriptAPI HTTP를 `api/`에서 직접 호출**한다(우리 제품은 에이전트 런타임이 아니라 서버다). 검색과 전사본이 한 곳에서 나온다 |
-| `alexmercerind/youtube-search-python` | ⭐803이지만 **2022-06 이후 방치, 아카이브됨** | **쓰지 않는다.** 유튜브 내부 응답을 긁는 방식이라 3년 방치면 깨졌을 확률이 높고, 현장 3시간에 디버깅할 여유 없음 |
-| `yt-dlp "ytsearch10:..."` + 자막 추출 | 이 맥에 이미 있음(`~/yt-transcribe`) | **폴백.** 로컬 맥에서는 잘 된다. 단 ✅ youtube-skills README가 명시: "YouTube blocks all major cloud IPs" → **EC2·stockllm에서 돌리면 막힌다.** 서버가 클라우드면 못 씀 |
-
-### 5.4 한도와 방어
-- 무료 100크레딧 → **검색·전사본 응답을 전부 `raw/.ytcache/`에 파일로 캐시.** 같은 요청은 크레딧을 안 쓴다. 데모 영상 3편은 **미리 받아서 커밋**해 두고 현장에서는 캐시 히트로 시연.
-- 현장 네트워크·크레딧 소진 대비: 검색이 실패하면 캐시된 후보 목록을 그대로 보여 준다(화면은 안 죽는다).
-- API 키는 서버 환경변수 `TRANSCRIPT_API_KEY`. 저장소·프론트·모델 컨텍스트에 넣지 않는다.
-- 자막 없는 영상은 후보에서 회색 처리("전사본 없음 — 넣을 수 없음"). STT는 하지 않는다.
-
-### 5.5 설계에 생기는 변화 (중요)
-**유튜브 영상은 mp4가 없다 → 장면 분할(ffmpeg)도, "경계 직전 프레임"도 없다.** 그래서:
-- `segments.json`에 `kind: "yt"` 추가. 구간 = 전사본을 **문단 경계 기준 45~90초**로 자른 것. `s = k`.
-- `final_frame: null` 허용. 뷰어는 프레임 자리에 **그 초에 멈춘 유튜브 플레이어**를 보여 준다(프레임 = 플레이어 자체).
-- 앵커 규약·`source_exists(L, s, t)`는 **그대로**. 훅은 한 줄도 안 바뀐다 — 이게 설계가 맞았다는 증거이자 발표 포인트.
-- 자동 정지는 IFrame API `getCurrentTime()` 250ms 폴링(harness 「해커톤 전에 해둘 것」 5번에 이미 있음).
-
-### 5.6 CONTRACT 추가분 (원격 푸시 전에 반영)
-- §4.1 `kind: "slide"|"board"|"yt"`, `final_frame: string|null`
-- §5 `GET /api/youtube/search?q=` → `[{videoId, title, channel, duration, thumbnail, hasTranscript}]`
-- §5 `POST /api/ingest {videoId}` → `{lecture:"L4", segments:N, status:"queued"|"done"}` · `GET /api/ingest/{lecture}` → 진행 상태
-- §5 `/api/source` 응답의 `frame`은 null 가능, `video.kind:"youtube"`면 `video.src = videoId`
-- 검색 UI는 `web/notes/search.html`(front-minsu) — 뷰어 레인을 더 무겁게 하지 않는다
+- 영상은 **위키에 들어가지 않고 앵커가 될 수 없다**(signals·notes와 같은 비정본 취급). 정본은 여전히 강의 원본뿐.
+- ✅ 저장소 확인: `ZeroPointRepo/youtube-skills`(⭐886, 9/15 푸시) = **TranscriptAPI.com SaaS 래퍼**, 무료 100크레딧 → **HTTP를 `api/` 에서 직접 호출**. `alexmercerind/youtube-search-python` = **2022-06 이후 방치·아카이브 → 안 쓴다.** yt-dlp = README가 "YouTube blocks all major cloud IPs" 명시 → **EC2에서 못 쓴다.**
+- 크레딧 방어: 모든 검색 응답을 `raw/.ytcache/` 에 캐시, 발표 질문 3개는 미리 데워 둔다. 실패하면 카드만 빠지고 답변은 나온다.
+- API: `GET /api/youtube/search?q=` · `/api/qa` 응답의 `videos[]` (CONTRACT §5.1).
 
 ## 6. 모델 — Bedrock 없이
 
@@ -149,27 +99,28 @@ complete(role: "strong"|"fast", system, messages, tools) -> {text, tool_calls}
 | strong | ③ 컴파일 (긴 입력, 앵커 정확도가 전부) | `o4-mini` 또는 `gpt-5.4-mini` | Sonnet 5 (`claude-sonnet-5`) |
 | fast | ②정렬 ④비평 ⑤링커 ⑦QA | `gpt-5.4-nano` / `gpt-4.1-mini` | Haiku 4.5 (`claude-haiku-4-5-20251001`) |
 
-**추천: OpenAI 무료 티어를 기본값으로, Claude 키가 있으면 strong만 Sonnet.**
+**결정: fast = OpenAI 무료 티어, strong = Sonnet 5(과금 부담되면 o4-mini), Gemini = 패널 선택지.**
 - ✅(8/18 확인, 팀장 계정) OpenAI 무료 티어 하루 250만 토큰: gpt-5.4-mini·nano, gpt-5-mini·nano, gpt-4.1-mini·nano, gpt-4o-mini, o3-mini, **o4-mini**. → **비용 0**, 1시간 강의 3편 컴파일에 충분.
 - ⚠️ **"gpt-4"(및 gpt-4o·gpt-4.1 본체)는 무료 목록에 없다 → 과금.** 팀이 말한 "gpt-4"는 `gpt-4.1-mini`로 읽는다. "gpt-mini-o4"는 `o4-mini`.
 - ⚠️ 무료 티어는 **데이터 공유 조건**으로 보임 → 공개 강의 전사본만 보낸다. 필기(notes)는 컴파일 입력에서 빼거나 Claude 쪽으로만.
 - o4-mini는 추론 모델이라 느리다(페이지당 수십 초). 현장 시연은 **미리 컴파일한 결과 + 라이브로 1페이지만**.
 - 🆕 **Gemini API도 후보**(팀장: 한도는 적지만 쓸 수 있음). 한도가 작으므로 **배치 컴파일에는 쓰지 않고 LLM 패널의 선택지 1개(fast)로만** 둔다 — 429가 나면 어댑터가 OpenAI로 자동 폴백. 정확한 모델명·한도는 키 발급 화면에서 확인 후 `LLM_FAST`에 넣는다(❓).
-- Claude를 쓰려면 Anthropic API 키가 필요(❓ §9 질문 1). 이 맥에서는 환경변수로 못 찾음.
+- ✅ 팀장 확인: **OpenAI·Gemini·Anthropic 키 3종 다 있음.** → 배치 컴파일 strong = Sonnet 5(앵커 정확도 우선) 또는 o4-mini(무료), fast = gpt-5.4-nano(무료). LLM 패널 드롭다운에 3종 노출. 키는 EC2 환경변수로만.
 
 ## 7. 아키텍처 (v1.1 → 오늘)
 
 ```
-[브라우저]  web/viewer (동욱) + web/notes (민수)   ── 빌드 없는 HTML/JS
+[브라우저]  Quartz 위키 화면 + 주입된 web/viewer (동욱) · web/notes (민수)
      │  /api/*                     │ CustomEvent: segment-boundary / note-saved
      ▼
-[api/ (우석)]  페이지·구간·필기·통계·이력 + 🆕 youtube/search · ingest
+[api/ (우석)  EC2 m5.large, 한 프로세스]  public/(Quartz)+JS 주입 · 구간·필기·통계·이력 · 🆕 qa · youtube/search
+     │  site/ : npx quartz build --watch  (wiki/ → public/)
      │  POST /notes ──▶ hooks/write_page_guard.py (agent=user)
      ▼
 [pipeline/ (규찬)]  결정적 오케스트레이터: ①적재 → ②정렬 → ③컴파일 → (④비평)
      │  모든 쓰기 = AgentGuard → WritePolicy → AuditLog(.history.jsonl)
-     ├──▶ pipeline/llm.py ──▶ OpenAI 또는 Anthropic   (Bedrock ✗)
-     ├──▶ 🆕 TranscriptAPI (검색·전사본, 캐시 raw/.ytcache/)
+     ├──▶ pipeline/llm.py ──▶ OpenAI · Anthropic · Gemini   (Bedrock ✗)
+     ├──▶ 🆕 TranscriptAPI (보충 영상 검색만, 캐시 raw/.ytcache/)
      └──▶ 로컬 디스크: wiki/*.md 정본 · raw/
 ```
 빠진 것: Bedrock · RDS · Grok TTS · InklingSync. **정본은 처음부터 파일이었으므로 RDS가 빠져도 설계는 안 바뀐다.**
@@ -177,7 +128,7 @@ complete(role: "strong"|"fast", system, messages, tools) -> {text, tool_calls}
 ## 8. 성공 기준 · 발표 · 리스크
 
 **데모가 성공이려면 (7분 안에 전부 클릭으로)**
-1. 유튜브 검색 → 1편 고름 → 위키 페이지가 생긴다 (캐시 히트 허용)
+1. LLM 패널에 질문 → 앵커 달린 답 + 교수님 채널 영상 카드. 위키에 없는 질문 → "근거 없음" + 영상 카드
 2. 문장 클릭 → 영상이 그 초로 간다 — 3문장
 3. 구간 끝에서 멈춤 → 필기 저장 → 이어서 재생
 4. 일부러 없는 초를 넣어 **422 + 훅 거부 사유**가 화면에 뜬다
@@ -190,14 +141,15 @@ complete(role: "strong"|"fast", system, messages, tools) -> {text, tool_calls}
 | TranscriptAPI 100크레딧 소진·현장 차단 | 데모 3편 사전 캐시 커밋. 검색 실패 시 캐시 목록 |
 | 추론 모델이 느림 | 사전 컴파일 + 라이브 1페이지 |
 | 프론트 둘이 한 화면에서 충돌 | 이벤트·`#note-slot`·CSS 접두사(CONTRACT §7) |
-| 유튜브 구간에 프레임이 없어 화면이 허전 | 플레이어 자체를 프레임으로. mp4 강의 1편(L3)은 프레임 있는 버전으로 같이 시연 |
-| 서버가 클라우드면 yt-dlp 폴백 불가 | 폴백은 로컬 맥 전용으로 못박음 |
+| Quartz 5가 EC2에서 빌드 안 됨 | 0:00에 확인, 안 되면 맥에서 빌드한 `public/` 업로드 |
+| EC2라 yt-dlp 불가 | TranscriptAPI만 사용, 실패 시 카드 생략 |
 | 설문이 '시간 낭비'는 약하게 지지 | 주장을 '요약 불신 85%'로 옮김(§1) |
 
-## 9. 팀장에게 묻는 것 (답에 따라 위 ⚠️가 바뀐다)
+## 9. 결정 기록 · 남은 질문
 
-1. **LLM 키가 실제로 뭐가 있나?** OpenAI 무료 티어 키(팀장 계정)를 쓸 건가, Anthropic API 키가 있나, 주최 측이 주는 크레딧이 있나. → §6 기본값 결정.
-2. **서버는 어디서 도나?** Bedrock이 없으면 EC2도 없나? EC2 / stockllm / 팀장 맥 로컬 중 어디냐에 따라 yt-dlp 폴백 가능 여부와 데모 URL이 갈린다.
-3. ~~설문 수치~~ ✅ N=96 반영(§1).
-4. **유튜브 검색의 역할**: (A) 입력 경로 — 검색해서 위키에 넣는다(이 문서의 가정) / (B) 보충 추천 — 위키 개념 옆에 관련 영상을 붙인다. B면 §5.2·5.5가 가벼워지고 P2로 내려간다.
-5. **원격 저장소 주소** — 아직 로컬(`~/AWS-MOTGA`)뿐이라 팀원에게 order를 못 보냈다.
+**9/20 오전 팀장 결정**: 뷰어 = Quartz 5 · 서버 = EC2 m5.large · LLM 키 3종(OpenAI·Gemini·Anthropic) 보유 · LLM 패널 = 위키 한정 · 유튜브 = 보충 추천(교수 채널 먼저) · 영상 = 오른쪽 위 미니 플레이어 → 클릭 시 split(위 영상 / 아래 필기).
+
+남은 것
+1. **원격 저장소 주소** — 아직 로컬뿐이라 팀원에게 order를 못 보냈다.
+2. **데모 강의가 무엇인가** — 과목·교수 채널 id(`api/media.json professorChannel`)·영상이 mp4인지 유튜브인지. 지금 `raw/L3/` 는 자리표시자다.
+3. **TranscriptAPI 가입**(이메일 OTP) → `TRANSCRIPT_API_KEY`.

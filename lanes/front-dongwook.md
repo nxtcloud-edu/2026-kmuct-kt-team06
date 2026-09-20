@@ -1,53 +1,53 @@
-# lane: front-dongwook (동욱) — 뷰어
+# lane: front-dongwook (동욱) — 앵커 · 미니 플레이어 · split
 
-**목표**: 위키 문장을 클릭하면 그 말이 나온 **슬라이드/판서 프레임과 영상의 그 초**로 점프한다. 영상은 구간 끝에서 스스로 멈춘다.
-이게 발표 화면 1번·2번이다. 여기서 심사가 갈린다.
+**목표**: Quartz가 그린 위키 위에서, 문장 끝 앵커를 누르면 **오른쪽 위 미니 플레이어가 그 초로 점프**한다. 미니 플레이어를 누르면 **split** 으로 펼쳐지고, 영상은 구간 끝에서 스스로 멈춘다. 발표 화면 1·2번.
 
-**소유**: `web/viewer/` 만. 다른 곳은 읽기만. 계약은 `CONTRACT.md`(§3 앵커, §5 API, §6 목, §7 이벤트).
-**스택**: 빌드 없는 순수 HTML/CSS/JS. `npm`·번들러·프레임워크 금지. 클래스 접두사 `v-`.
+**소유**: `web/viewer/` + `site/quartz.config.yaml`. **`site/quartz/` 소스는 절대 안 고친다.**
+**읽을 것**: `CONTRACT.md` §3 앵커 · §5 API · §6 목 · **§7 전부(특히 7.2 Quartz와 같이 살기)**.
+**스택**: 빌드 없는 순수 JS/CSS. 클래스 접두사 `v-`. 위키 렌더·탐색기·검색은 Quartz가 이미 한다 — 다시 만들지 마라.
+
+## 0. 띄우기 (5분)
+```bash
+cd site && npm ci && npx quartz build -d ../wiki -o ../public && cd ..
+python3 tools/devserve.py 8000
+```
+`http://localhost:8000/concepts/bfs` 가 뜨면 된 것. `web/viewer/viewer.js` 는 이미 모든 페이지에 주입된다(아직 파일이 없어서 404일 뿐).
 
 ## 30분 단위
 
-### T1 (0:00–0:30) 뼈대 + 목으로 페이지 그리기
-- `web/viewer/index.html` `viewer.css` `viewer.js`
-- `const USE_MOCK = true` (CONTRACT §6 그대로)
-- `/mock/pages.json` → 왼쪽 페이지 목록, `/mock/pages/<slug>.json` → 본문 `## Current` 문단 렌더
-- 프론트매터 `status` 를 배지로: `approved` 초록 · `draft` 회색 · `grey` 빗금 + "검증 안 됨"
-- **완료 조건**: 브라우저에서 페이지 하나가 보이고, 문단마다 앵커 `[[L3#s7@t=340]]` 가 파란 칩으로 보인다.
+### T1 (0:00–0:30) 앵커 칩
+- `web/viewer/viewer.js` `viewer.css`. `const USE_MOCK = true` (§6)
+- `init()` 을 만들고 **파일 끝에서 한 번 호출 + `document.addEventListener('nav', init)`** (§7.2). `init` 은 여러 번 불려도 안전하게
+- 본문의 `a.internal` 중 텍스트가 `^L(\d+) > s(\d+)@t=(\d+)$` → `<button class="v-anchor" data-anchor="L3#s5@t=330">` 로 교체. 칩 글자는 `L3 · 5:30`
+- **완료 조건**: bfs 페이지에서 앵커 5개가 칩으로 보이고, 탐색기로 dfs 로 넘어가도(새로고침 없이) 칩이 된다.
 
-### T2 (0:30–1:00) 앵커 클릭 → 프레임 + 영상 점프
-- 앵커 파싱은 CONTRACT §3 정규식만. `[[note:` `[[signal:` 은 링크로 만들지 않는다(그냥 회색 텍스트).
-- 클릭 → `GET /api/source?anchor=...` (목: `/mock/source.json`) → 오른쪽에 `frame` 이미지 + 아래 영상 `currentTime = t`
-- mp4면 `<video>`, 유튜브면 IFrame API `seekTo(t, true)`
-- `window.dispatchEvent(new CustomEvent('anchor-open', {detail:{lecture,s,t,anchor}}))`
-- **완료 조건**: 문장 클릭 → 프레임 뜨고 영상이 그 초로 간다. 3개 문장으로 시연 성공.
+### T2 (0:30–1:00) 미니 플레이어 + 점프
+- 오른쪽 위 고정 미니 플레이어 `#v-mini` (없으면 만든다). 칩 클릭 → `GET /api/source?anchor=` (목 `/mock/source.json`) → `video.kind` 가 mp4면 `<video>.currentTime=t`, youtube면 IFrame API `seekTo(t,true)` + 재생. `frame` 이 있으면 플레이어 아래 썸네일로
+- `anchor-open` 발사. `anchor-request` 수신(민수 채팅 패널이 쏜다) → 같은 점프
+- 페이지를 옮겨도 미니 플레이어는 **살아 있어야** 한다(재생 끊기지 않게 body 직속)
+- **완료 조건**: 칩 3개를 차례로 눌러 영상이 세 번 점프한다.
 
-### T3 (1:00–1:30) 구간 끝에서 자동 정지 → 노트 슬롯 열기
-- `GET /api/segments/L3` (목 `/mock/segments/L3.json`) 로 구간표를 들고 있는다
-- mp4 `timeupdate` / 유튜브 `getCurrentTime()` 250ms 폴링 → `t_end` 를 지나면 `pause()`
-- `segment-boundary` 이벤트 발사 (CONTRACT §7 스키마 그대로). `<aside id="note-slot">` 안은 **절대 건드리지 않는다**
-- `note-saved` / `notes-closed` 를 받으면 `play()`
-- 설정 체크박스 "구간 끝에서 멈추기" (기본 켬)
-- **완료 조건**: 재생 → 경계에서 멈춤 → 민수 패널이 뜸 → 저장하면 이어서 재생. **민수와 둘이 같이 확인한다.**
+### T3 (1:00–1:30) split + 구간 끝 자동 정지
+- 미니 플레이어 클릭 → `body.classList.add('v-split')`: Quartz `.center` 를 좁히고 오른쪽에 `#v-pane`(위=플레이어·프레임, 아래=`<aside id="note-slot">`). 접기 버튼
+- `<aside id="chat-slot">` 도 여기서 만든다(맨 오른쪽 열, 접기 가능). **두 슬롯의 안쪽은 건드리지 않는다**
+- `/api/segments/L3` 구간표 → mp4 `timeupdate` / 유튜브 250ms 폴링 → `t_end` 통과 시 `pause()` + (닫혀 있으면 split 열고) `segment-boundary` 발사
+- `note-saved`/`notes-closed` → `play()`. "구간 끝에서 멈추기" 토글(기본 켬)
+- **완료 조건**: 재생 → 멈춤 → 민수 패널 뜸 → 저장 → 재개. **민수와 같이 확인.**
 
-### T4 (1:30–2:00) 진짜 API로 전환 + 역방향
-- `USE_MOCK = false`. 깨지는 것 목록을 `board.sh status` 로 보고
-- 역방향: 필기가 있는 구간은 영상 타임라인에 노란 마커, 클릭하면 그 구간으로
-- **완료 조건**: 목 없이 T2·T3가 그대로 된다.
+### T4 (1:30–2:00) 진짜 API + `context-request`
+- `USE_MOCK=false`. `context-request` 를 받으면 `context-reply {slug, anchor}` 로 지금 페이지·마지막 앵커를 답한다
+- 필기 있는 구간은 타임라인에 노란 마커
 
-### T5 (2:00–2:30) 발표용 다듬기
-- 강의 L1/L2/L3 전환 드롭다운
-- 키보드: `←/→` 구간 이동, `space` 재생/정지
-- 빈 상태·에러 토스트(§5) — 데모 중 흰 화면이 제일 위험하다
-- **완료 조건**: 7분 발표 동선을 혼자 클릭으로 완주.
+### T5 (2:00–2:30) 다듬기
+- `site/quartz.config.yaml` 색·폰트를 옵시디언풍 다크로(기본 다크 모드). Quartz 오른쪽 사이드바(TOC·그래프)가 LLM 패널과 겹치면 config 에서 끈다
+- 좁은 화면에서 split·채팅 접힘 기본값, 에러 토스트
+- **완료 조건**: 발표 동선을 클릭만으로 완주.
 
 ## 건드리면 안 되는 곳
-`web/notes/` · `api/` · `pipeline/` · `hooks/` · `wiki/` · `raw/` · `CONTRACT.md`
-`#note-slot` 의 **내부 DOM**(민수 것). 바깥 위치·크기만 네 CSS.
+`site/quartz/**` · `web/notes/` · `api/` · `pipeline/` · `hooks/` · `wiki/` · `raw/` · `public/` · 두 슬롯의 **안쪽 DOM**
 
-## 기다리는 것 / 그동안
-API를 기다리지 않는다. `mock/` 이 §5와 같은 모양이라 0분부터 완성품을 만들 수 있다.
-1:30 에 다 같이 `USE_MOCK=false`.
+## 기다리는 것
+없다. `devserve.py` + `mock/` 으로 끝까지 간다. 1:30 에 다 같이 `USE_MOCK=false`.
 
 ## 계약을 바꾸고 싶으면
-직접 고치지 말고 `board.sh human "CONTRACT §7 이벤트 이름 바꾸자: A(그대로)/B(...)"`.
+`board.sh human "CONTRACT §7.4 이벤트 ...: A(그대로)/B(...)"`.

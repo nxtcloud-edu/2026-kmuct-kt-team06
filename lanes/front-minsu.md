@@ -1,53 +1,48 @@
-# lane: front-minsu (민수) — 필기 + 대시보드
+# lane: front-minsu (민수) — 필기 · LLM 패널 · 대시보드
 
-**목표**: (1) 영상이 멈춘 그 프레임 **옆에** 필기를 적어 저장한다 — "필기가 강의랑 따로 논다"는 문제를 화면으로 보여주는 곳.
-(2) 위키가 **자란다**는 것과 **검증이 실제로 돌았다**는 것을 숫자로 보여주는 대시보드 — 발표 화면 3·4·5.
+**목표**: (1) 멈춘 프레임 **옆에서** 필기 저장. (2) 맨 오른쪽 **LLM 패널** — 위키에만 근거해 답하고, 답변 아래 **관련 영상 카드**(교수님 채널 먼저). (3) 발표용 대시보드.
+설문 N=96: 요약 AI를 쓴 학생의 **85%가 원본을 다시 열었다.** LLM 패널의 답변마다 붙는 앵커 칩이 그 답이다 — 여기가 발표의 핵심 화면이다.
 
-**소유**: `web/notes/` 만. 계약은 `CONTRACT.md`(§5 API, §6 목, §7 이벤트).
-**스택**: 빌드 없는 순수 HTML/CSS/JS. 클래스 접두사 `n-`. 전역 셀렉터 금지.
+**소유**: `web/notes/` 만. **읽을 것**: `CONTRACT.md` §5(특히 `/api/qa`, §5.1 영상 카드) · §6 · §7.
+**스택**: 빌드 없는 순수 JS/CSS. 접두사 `n-`. 초기화는 **파일 끝에서 `init()` 1회 + `nav` 이벤트**(§7.2) — Quartz는 SPA다.
+**띄우기**: `lanes/front-dongwook.md` 의 "0. 띄우기"와 같다. 슬롯이 아직 없으면(동욱 T3 전) `web/notes/standalone.html` 에 `#note-slot` `#chat-slot` 을 직접 두고 개발한다.
 
 ## 30분 단위
 
-### T1 (0:00–0:30) 필기 패널 단독으로 완성
-- `web/notes/notes.js` `notes.css` + 혼자 열어볼 `web/notes/standalone.html`
-- 패널 = 프레임 이미지 + 텍스트 입력 + [저장] [건너뛰기] + 그 구간에 이미 있는 필기 목록
-- 아직 이벤트 안 붙여도 된다. `standalone.html` 에서 가짜 detail 로 호출해 본다
-- **완료 조건**: 프레임 옆에서 글을 쓰고 저장 버튼이 눌린다.
+### T1 (0:00–0:30) LLM 패널 껍데기 (`web/notes/chat.js`)
+- `#chat-slot` 에 마운트(없으면 100ms 간격으로 최대 5초 기다린다 — 동욱이 만든다)
+- 구조: 위 = 답변 목록(아래에서 위로 쌓임, 최신이 입력창 바로 위) / **맨 아래 고정 입력창** = `＋` · 모델 드롭다운(`GET /api/models`, 목이면 `fast/strong/gemini` 하드코딩) · 전송
+- 전송 → `POST /api/qa` (목: `GET /mock/qa.json`)
+- **완료 조건**: standalone 에서 질문 → 목 답변이 입력창 위에 쌓인다.
 
-### T2 (0:30–1:00) 이벤트로 뷰어에 붙기
-- `document.getElementById('note-slot')` 에 마운트. **뷰어 파일은 한 줄도 고치지 않는다**
-- `segment-boundary` 수신 → 패널 열기 (detail: lecture, k, s, t_end, frame)
-- 저장 → `POST /api/notes {lecture,k,text}` → 성공하면 `note-saved` 발사
-- 건너뛰기 → `notes-closed` 발사
-- **목 모드**: `USE_MOCK=true` 면 `localStorage` 에 저장하고 성공 취급 (CONTRACT §8)
-- 422 `WRITE_REJECTED` 면 훅이 준 `message` 를 빨간 박스에 **그대로** 보여준다 — 이게 "훅이 진짜 돈다"는 증거 화면이다
-- **완료 조건**: 동욱 화면에서 경계 정지 → 내 패널 뜸 → 저장 → 재생 재개. **동욱과 둘이 같이 확인.**
+### T2 (0:30–1:00) 답변 렌더 = 앵커 칩 + 영상 카드
+- `answer` 안의 `[[L3#s5@t=330]]` 를 §3 정규식으로 칩으로. 칩 클릭 → `anchor-request {anchor}` 발사(점프는 동욱이 한다)
+- `notes[]` → 답변 끝 **"내 필기:"** 블록(칩 아님, 회색 상자)
+- `videos[]` → **"관련 영상"** 카드 2~3개. `source:"professor"` 는 맨 앞 + "교수님 채널" 배지. 클릭은 새 탭
+- `reason:"NO_GROUNDING"` → "위키에 근거가 없습니다" 상자 + 영상 카드는 그대로 (목 `mock/qa-nogrounding.json` — 질문에 "다익스트라"가 있으면 이걸 읽게)
+- `＋` 버튼 → `context-request` 발사 → `context-reply` 받아 입력창 위에 "📎 bfs · L3 5:30" 칩
+- **완료 조건**: 근거 있는 답 1개, 근거 없는 답 1개가 다르게 보인다.
 
-### T3 (1:00–1:30) 대시보드 ①성장 ②반려 로그
-- `web/notes/dashboard.html` (독립 페이지)
-- `GET /api/stats` → 큰 숫자 카드: 강의 수 · 페이지 수 · 링크 수 · 필기 수 · **approved/draft/grey**
-- "강의 1편 → 3편" 성장: 강의 수를 1·2·3 으로 바꿔가며 페이지·링크 수가 느는 막대 (데이터가 없으면 stats 를 강의별로 받아 누적)
-- `GET /api/history?limit=10` → 표: 시각 · agent · path · **verdict(ALLOW/REJECTED)** · reason. REJECTED 는 빨강
-- **완료 조건**: 두 화면이 목으로 뜬다. 특히 REJECTED 줄이 보인다.
+### T3 (1:00–1:30) 필기 패널 (`web/notes/notes.js`)
+- `#note-slot` 에 마운트. `segment-boundary` 수신 → 프레임(없으면 생략) + 입력 + [저장][건너뛰기] + 그 구간 기존 필기
+- 저장 → `POST /api/notes` → `note-saved`. 건너뛰기 → `notes-closed`. 목이면 `localStorage`
+- **422 `WRITE_REJECTED` 의 `message` 를 빨간 상자에 그대로** — 훅이 진짜 돈다는 증거 화면
+- **완료 조건**: 동욱 화면에서 멈춤 → 패널 → 저장 → 재개. **동욱과 같이 확인.**
 
-### T4 (1:30–2:00) 커버리지 + 진짜 API
-- `stats.coverage` → "시험 범위 커버리지 **N/M**" 도넛 또는 큰 숫자 + 미커버 항목 목록
-- `USE_MOCK = false` 전환, 깨지는 것 보고
-- **완료 조건**: 목 없이 T2·T3가 된다.
+### T4 (1:30–2:00) 진짜 API + 대시보드
+- `USE_MOCK=false`
+- `web/notes/dashboard.html`(독립): `/api/stats` 큰 숫자(페이지·링크·필기·approved/draft/grey·**커버리지 N/M**) + `/api/history` 표(REJECTED 빨강), 5초 자동 새로고침
+- **완료 조건**: 패널 두 개가 목 없이 돌고, 대시보드에 REJECTED 줄이 보인다.
 
-### T5 (2:00–2:30) 발표용 다듬기
-- 대시보드 자동 새로고침 5초 (발표 중 숫자가 실제로 오르는 걸 보여준다)
-- 내 필기 목록 화면: 강의별 필기 → 클릭하면 뷰어의 그 구간으로 (`?lecture=L3&k=7` 로 링크)
-- 빈 상태 문구
-- **완료 조건**: 발표에서 대시보드 → 필기 → 뷰어 순서로 끊김 없이 넘어간다.
+### T5 (2:00–2:30) 다듬기
+- 답변 로딩 표시(strong 모델은 수십 초), 실패 토스트, 패널 접힘 상태 기억
+- 발표 질문 3개를 입력창 placeholder 로 돌려 보여 주기
 
 ## 건드리면 안 되는 곳
-`web/viewer/` (동욱) · `api/` · `pipeline/` · `hooks/` · `wiki/` · `raw/` · `CONTRACT.md`
-`#note-slot` 바깥의 레이아웃은 동욱 것. 슬롯 **안**만 네 것.
+`web/viewer/` · `site/` · `api/` · `pipeline/` · `hooks/` · `wiki/` · `raw/` · 슬롯 **바깥** 레이아웃(동욱 것)
 
-## 기다리는 것 / 그동안
-`POST /api/notes` 와 `/api/stats` 를 기다리지 않는다 — `mock/` + `localStorage` 로 끝까지 만든다.
-1:30 에 다 같이 `USE_MOCK=false`.
+## 기다리는 것
+없다. `mock/` + `localStorage` + `standalone.html`.
 
 ## 계약을 바꾸고 싶으면
-`board.sh human "..."`. 특히 이벤트 이름·`#note-slot` 규약은 동욱과 같이 쓰는 것이라 혼자 바꾸면 화면이 죽는다.
+`board.sh human "..."`. 이벤트·슬롯은 동욱과 같이 쓰는 것이라 혼자 바꾸면 화면이 죽는다.

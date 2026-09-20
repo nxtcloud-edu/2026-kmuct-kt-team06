@@ -10,7 +10,7 @@
 ## 30분 단위
 
 ### T0 (도착 직후, 0:00 전) — 남을 막는 것부터
-1. Bedrock·EC2 권한 요청(AWS 직원 상주 — 제일 먼저 말한다)
+1. EC2 m5.large 접속 확인 → Node ≥22 · `cd site && npm ci` · `npx quartz build -d ../wiki -o ../public --watch` 를 tmux 에 띄운다 · 키 4종을 서버 환경변수로(**Bedrock 없음**)
 2. `mock/` 7개 파일 커밋·푸시 → **프론트 둘이 0분부터 출발한다**
 3. `wiki/` 샘플 페이지 3개 커밋 → **우석이 0분부터 출발한다**
 4. 레인 4개에 `board.sh order` 전송
@@ -25,6 +25,7 @@
 ### T2 (0:30–1:00) 스킬 문구 수정 + ②정렬 돌리기
 - `wiki-anchor`: "s = 슬라이드 번호 **또는 판서 구간 번호**", 유효 조건 = segments.json · `[[note:` `[[signal:` 금지 한 줄
 - `align-extract`: 입력을 `segments.json` 으로 · "OCR 텍스트는 배정 힌트일 뿐 본문에 옮기지 않는다"
+- **`pipeline/llm.py` 먼저(우석이 기다린다)**: `complete(role, system, messages, tools)` 어댑터 — `LLM_PROVIDER=openai|anthropic|gemini`, 429면 다음 공급자로. 20분 안에 OpenAI 하나만이라도 푸시
 - `pipeline/orchestrator.py`: 단계 고정·에이전트별 최대 턴(②30 ③20 ④10 ⑤15 ⑦8)·이벤트에 `agent` 실어 훅 호출·실패 2회면 grey
 - ② 실행 → `wiki/episodic/L3.md`
 - **완료 조건**: episodic 에 `## s{s} @t={초}` 블록이 쌓인다.
@@ -32,7 +33,7 @@
 ### T3 (1:00–1:30) ③컴파일 → 진짜 페이지
 - `compile-page` 수정(필기 달린 구간 우선 · 제보/필기 문장을 Current 에 넣지 않는다)
 - ③ 실행 → `wiki/concepts/*.md`, `wiki/lectures/L3.md`
-- 우석에게 "이제 진짜 페이지 있다" 알리고 `/api/pages` 개수 확인
+- Quartz `--watch` 가 새 페이지를 몇 초 안에 화면에 올리는지 확인(= 발표의 "위키가 자란다" 장면)
 - **완료 조건**: 앵커가 실제 프레임을 가리키는 페이지가 3개 이상. 동욱 화면에서 클릭해 본다.
 
 ### T4 (1:30–2:00) 🔴 통합 점검 1회 (코딩보다 이게 우선)

@@ -13,14 +13,15 @@
 
 | 레인 | 담당 | 소유(쓰기 허용) | 읽기만 |
 |---|---|---|---|
-| `front-dongwook` | 동욱 | `web/viewer/` | `mock/`, `raw/`, `CONTRACT.md` |
-| `front-minsu` | 민수 | `web/notes/` | `mock/`, `raw/`, `CONTRACT.md` |
-| `back-wooseok` | 우석 | `api/` | `wiki/`, `raw/`, `pipeline/`, `CONTRACT.md` |
-| `back-kyuchan` | 규찬(팀장) | `pipeline/` `hooks/` `tools/` `prompts/` `skills/` `mock/` `CONTRACT.md` `lanes/` | 전부 |
+| `front-dongwook` | 동욱 | `web/viewer/` · `site/quartz.config.yaml` (Quartz 설정·테마) | `mock/`, `raw/`, `public/` |
+| `front-minsu` | 민수 | `web/notes/` | `mock/`, `raw/` |
+| `back-wooseok` | 우석 | `api/` | `wiki/`, `raw/`, `hooks/`, `tools/`, `public/` |
+| `back-kyuchan` | 규찬(팀장) | `pipeline/` `hooks/` `tools/` `prompts/` `skills/` `mock/` `CONTRACT.md` `lanes/` `docs/` | 전부 |
 
 - `wiki/`, `raw/` 는 **산출물**이다. 사람이 손으로 고치지 않는다(파이프라인과 API만 쓴다).
-- `docs/` 는 읽기 전용(설계 정본).
-- 루트 파일(`README.md`, `.gitignore`, `requirements.txt`)은 팀장만.
+- `site/` = Quartz 5 (MIT). **`site/quartz/` 내부 소스는 아무도 고치지 않는다.** 바꿀 수 있는 건 `site/quartz.config.yaml` 뿐(동욱).
+- `public/` = Quartz 빌드 결과. gitignore. 손대지 않는다.
+- 루트 파일(`README.md`, `.gitignore`)은 팀장만.
 
 ## 2. 커밋 규칙
 
@@ -65,67 +66,112 @@
 ## 5. API 계약 (back-wooseok 가 구현, 프론트는 이것만 부른다)
 
 베이스: 같은 오리진 `/api`. 실패는 HTTP 상태 + `{"error":{"code":"...","message":"..."}}`.
+**위키 본문·페이지 목록·검색·백링크·그래프는 Quartz가 그린다 → 페이지 API는 없다.**
 
 | 메서드 | 경로 | 응답 |
 |---|---|---|
-| GET | `/api/pages` | `[{slug, path, title, type, status, links:[slug], updated}]` |
-| GET | `/api/pages/{slug}` | `{slug, title, type, status, links, current:[{id, text, anchors:[str]}], history:[{text, anchors}], md}` |
-| GET | `/api/segments/{lecture}` | `segments.json` 원본 배열 + `{lecture, video: {kind:"mp4"\|"youtube", src}}` 를 감싼 `{lecture, video, segments:[...]}` |
-| GET | `/api/source?anchor=L3%23s7%40t%3D340` | `{lecture:"L3", k, s, t_start, t_end, frame:"/raw/L3/seg_7_final.jpg", slide:"/raw/L3/slides/s7.png"\|null, video:{kind,src}, ocr, exists:true}` · 없으면 404 `SOURCE_NOT_FOUND` |
+| GET | `/api/segments/{lecture}` | `{lecture, video:{kind:"mp4"\|"youtube", src}, segments:[...§4.1]}` |
+| GET | `/api/source?anchor=L3%23s7%40t%3D340` | `{lecture:"L3", k, s, t_start, t_end, frame:"/raw/L3/seg_7_final.jpg"\|null, slide:"..."\|null, video:{kind,src}, ocr, exists:true}` · 없으면 404 `SOURCE_NOT_FOUND` |
 | GET | `/api/notes/{lecture}` | `[{k, s, text, anchor, frame, updated}]` |
 | POST | `/api/notes` | 요청 `{lecture:"L3", k:7, text:"..."}` → `{ok:true, path, anchor, frame}` · WritePolicy 거부 시 **422** `{"error":{"code":"WRITE_REJECTED","message":"<훅이 준 이유 그대로>"}}` |
 | GET | `/api/stats` | `{lectures, pages, approved, draft, grey, links, notes, coverage:{covered, total}}` |
-| GET | `/api/history?limit=10` | `[{ts, agent, tool, path, verdict, reason}]` (최신순, `.history.jsonl` 꼬리) |
-| POST | `/api/qa` | 요청 `{question}` → `{answer, anchors:[str], notes:[{anchor,text}], unanchored:[str]}` *(⑦, 스트레치 — 없으면 501)* |
+| GET | `/api/history?limit=10` | `[{ts, agent, tool, path, verdict, reason}]` (최신순) |
+| POST | `/api/qa` | 요청 `{question, model:"fast"\|"strong"\|"gemini", context:{slug, anchor\|null}}` → `{answer, anchors:[str], notes:[{anchor,text}], unanchored:[str], model, videos:[§5.1]}` · 위키에 근거 없으면 **200** `{answer:null, reason:"NO_GROUNDING", message, videos:[...]}` |
+| GET | `/api/youtube/search?q=` | `[§5.1]` — 교수 채널 결과 먼저, 그다음 일반 검색 |
+| GET | `/api/models` | `[{id:"fast", label:"빠름 · gpt-5.4-nano"}, ...]` — LLM 패널 드롭다운용 |
 
-정적 서빙: `/raw/**` (프레임·슬라이드·mp4), `/` → `web/viewer/index.html`.
+### 5.1 영상 카드
+`{videoId, title, channel, duration, thumbnail, url, source:"professor"|"search"}`
+**보충 추천일 뿐이다. 위키에 넣지 않는다. 앵커가 될 수 없다.** 교수 채널 id는 `api/media.json` 의 `professorChannel`.
 
-**프론트는 401/403/500을 화면에 토스트로 띄우고 죽지 않는다.** API가 아직 없으면 §6 목으로 붙는다.
+### 5.2 `/api/qa` 규칙 (LLM 패널 = 위키 한정)
+1. `tools/grep_wiki.py` + 링크 1홉으로 위키에서 근거를 찾는다. **위키 밖 지식으로 답하지 않는다.**
+2. 답변은 `hooks/qa_stop_guard.py` 를 통과해야 한다(앵커 없는 답변 → 재생성 1회 → 그래도 없으면 `NO_GROUNDING`).
+3. 어느 경우든 `videos` 는 채운다(질문 키워드로 `/api/youtube/search` 와 같은 함수 호출). 실패하면 `[]`.
+4. 유튜브 호출은 **TranscriptAPI HTTP**(EC2는 yt-dlp가 막힌다). 응답은 `raw/.ytcache/<sha1(q)>.json` 에 캐시 — 크레딧 100개뿐이다.
+
+### 5.3 서빙 (api/server.py 가 전부 한다, 같은 오리진)
+- `/` → `public/` (Quartz 결과). **HTML 응답에는 §7.1 의 주입 블록을 `</body>` 앞에 끼운다.** 구현은 `tools/devserve.py` 의 `inject()`·`resolve()` 를 import 해서 그대로 쓴다.
+- `/web/**` `/raw/**` `/mock/**` → 저장소의 같은 디렉터리
+- Quartz 재빌드는 별도 프로세스: `cd site && npx quartz build -d ../wiki -o ../public --watch` (팀장이 띄운다). 파이프라인이 `wiki/` 에 쓰면 몇 초 뒤 화면에 나온다.
+
+**프론트는 401/403/500을 토스트로 띄우고 죽지 않는다.**
 
 ## 6. 목(mock) — 프론트는 0분부터 시작한다
 
-`mock/` 아래에 §5와 **경로·스키마가 같은** 정적 JSON이 들어 있다(팀장이 채워 둠).
+```bash
+cd site && npm ci && npx quartz build -d ../wiki -o ../public && cd ..
+python3 tools/devserve.py 8000        # http://localhost:8000
+```
+`tools/devserve.py` 가 `public/` 에 **§7.1 주입**까지 해서 띄운다 → API 서버 없이 네 JS가 Quartz 화면 위에서 돈다.
 
-프론트 코드 맨 위에 이 한 줄만 두고, API가 살면 `false` 로 바꾼다:
-
+프론트 JS 맨 위에 이 두 줄만 두고, API가 살면 `false` 로 바꾼다:
 ```js
 const USE_MOCK = true;
-const API = (p) => USE_MOCK ? `/mock${p.replace('/api','')}.json` : p;
+const API = (p) => USE_MOCK ? `/mock${p.replace('/api','').split('?')[0]}.json` : p;
+```
+목 파일: `mock/segments/L3.json` `mock/source.json` `mock/notes/L3.json` `mock/stats.json` `mock/history.json` `mock/qa.json` `mock/qa-nogrounding.json`
+POST는 목이 없다 → `USE_MOCK` 이면 필기는 `localStorage`, QA는 `mock/qa.json` 을 GET.
+
+## 7. 화면 — Quartz 위에 얹는다
+
+**Quartz가 그리는 것**(우리는 안 만든다): 위키 본문, 왼쪽 탐색기, 검색, 백링크, 그래프, 다크 모드.
+**우리가 얹는 것**: 앵커 칩 · 미니 플레이어 → split · 필기 · LLM 패널.
+
+```
+평소                                          미니 플레이어를 누르면 (split)
+┌────────┬──────────────────┬──┬────────┐    ┌────────┬──────────┬───────────┬────────┐
+│Quartz  │ 위키 본문         │▣ │ LLM    │    │Quartz  │ 위키 본문 │ 영상·프레임 │ LLM    │
+│탐색기   │ 문장 [L3·s5·5:30]│미니│ 답변 ↑ │    │탐색기   │          │───────────│ 답변 ↑ │
+│        │                  │   │ [입력] │    │        │          │ 필기       │ [입력] │
+└────────┴──────────────────┴──┴────────┘    └────────┴──────────┴───────────┴────────┘
+```
+- **미니 플레이어**: 오른쪽 위에 작게 떠 있다(Aside의 PiP처럼). 앵커를 누르면 거기서 그 초가 재생된다. **미니 플레이어를 누르면 split** 으로 펼쳐져 위=영상·프레임, 아래=필기. 다시 접을 수 있다.
+- **LLM 패널**: 맨 오른쪽, 접을 수 있다. 입력창은 **맨 아래 고정**, 답변은 **위로 쌓인다**. 입력창 = `＋`(지금 페이지·구간 첨부) · 모델 드롭다운 · 전송. 답변 아래 **"관련 영상" 카드**(§5.1, 교수 채널 먼저).
+
+### 7.1 주입 (서버가 모든 HTML의 `</body>` 앞에 넣는다 — 순서 고정)
+```html
+<link rel="stylesheet" href="/web/viewer/viewer.css">
+<link rel="stylesheet" href="/web/notes/notes.css">
+<script defer src="/web/viewer/viewer.js"></script>
+<script defer src="/web/notes/notes.js"></script>
+<script defer src="/web/notes/chat.js"></script>
 ```
 
-목 파일: `mock/pages.json` `mock/pages/<slug>.json` `mock/segments/L3.json` `mock/source.json` `mock/notes/L3.json` `mock/stats.json` `mock/history.json`
-데모 강의는 `L3` 하나로 고정. 프레임 이미지는 `raw/L3/` 의 진짜 파일을 쓴다.
+### 7.2 Quartz와 같이 살기 (✅ 9/20 실측)
+- Quartz는 SPA다. 페이지를 옮길 때 새로고침이 없다 → **초기화는 전부 `document.addEventListener('nav', init)` 안에서.** `DOMContentLoaded` 에만 걸면 두 번째 페이지부터 죽는다. `nav` 는 첫 로드에도 발생하지만(spa.inline.ts:198) 우리 스크립트는 `defer` 라 그걸 놓칠 수 있다 → **파일 끝에서 `init()` 을 한 번 직접 부르고, `nav` 에도 건다.**
+- `init` 은 **여러 번 불린다** → 슬롯·플레이어는 "없으면 만든다"로. 중복 생성 금지.
+- Quartz는 우리 앵커 `[[L3#s5@t=330]]` 를 위키링크로 오해해서 이렇게 렌더링한다:
+  `<a class="internal ..." href="../lectures/l3#s5t330">L3 > s5@t=330</a>`
+  → `viewer.js` 가 `nav` 마다 본문의 `a.internal` 중 **텍스트가 `^L(\d+) > s(\d+)@t=(\d+)$`** 인 것을 찾아 `<button class="v-anchor" data-anchor="L3#s5@t=330">` 칩으로 **바꿔치기**한다. 이게 앵커의 DOM 규약이다.
+- 페이지 `status` 배지(draft/grey)는 Quartz가 안 그린다 → P2. 시간이 남으면 viewer 가 얹는다.
 
-## 7. 프론트 두 레인의 경계 (동욱 ↔ 민수)
-
-한 화면에 둘이 들어가므로 **이벤트로만 붙는다. 서로의 파일을 import 하지 않는다.**
-
-- `web/viewer/` = 위키 본문 렌더 + 앵커 클릭 + 영상 플레이어 + 경계 자동 정지
-- `web/notes/` = 필기 패널 + 대시보드(성장·반려 로그·커버리지)
-
-**뷰어 → 노트 (동욱이 쏘고, 민수가 받는다)**
-```js
-window.dispatchEvent(new CustomEvent('segment-boundary', {
-  detail: { lecture: 'L3', k: 7, s: 7, t_end: 340.4, frame: '/raw/L3/seg_7_final.jpg' }
-}));
-window.dispatchEvent(new CustomEvent('anchor-open', { detail: { lecture, s, t, anchor } }));
+### 7.3 슬롯 (동욱이 만들고, 민수가 채운다)
+`viewer.js` 가 `nav` 때 `document.body` 에 없으면 만든다. **안쪽 DOM은 민수 것.**
+```html
+<aside id="note-slot"></aside>   <!-- split 아래쪽 -->
+<aside id="chat-slot"></aside>   <!-- 맨 오른쪽 열 -->
 ```
-**노트 → 뷰어 (민수가 쏘고, 동욱이 받는다)**
-```js
-window.dispatchEvent(new CustomEvent('note-saved',  { detail: { lecture, k } }));  // 뷰어는 재생 재개
-window.dispatchEvent(new CustomEvent('notes-closed', { detail: { lecture, k } }));  // 저장 안 하고 닫음 → 재생 재개
-```
-**마운트 지점**: 뷰어 `index.html` 안에 `<aside id="note-slot"></aside>` 가 비어 있다. 민수의 `web/notes/notes.js` 가 `document.getElementById('note-slot')` 에 자기 UI를 그린다. 동욱은 이 요소의 내부를 건드리지 않는다.
-**대시보드**는 독립 페이지 `web/notes/dashboard.html` (뷰어와 무관, 발표용 화면 3·4·5).
-**CSS 충돌 방지**: 동욱 클래스 접두사 `v-`, 민수 `n-`. 전역 태그 셀렉터(`body{}`, `a{}`) 금지.
+
+### 7.4 이벤트 (서로의 파일을 import 하지 않는다. `window` 이벤트로만)
+| 이벤트 | 쏘는 쪽 → 받는 쪽 | detail |
+|---|---|---|
+| `segment-boundary` | viewer → notes | `{lecture, k, s, t_end, frame}` — 구간 끝에서 멈춤. split 이 닫혀 있으면 viewer 가 먼저 연다 |
+| `anchor-open` | viewer → (notes, chat) | `{lecture, s, t, anchor}` |
+| `anchor-request` | chat → viewer | `{anchor:"L3#s5@t=330"}` — 답변 속 칩을 눌렀다. viewer 가 점프한다 |
+| `note-saved` / `notes-closed` | notes → viewer | `{lecture, k}` — 재생 재개 |
+| `context-request` → `context-reply` | chat → viewer → chat | reply `{slug, anchor\|null}` — `＋` 버튼이 지금 보는 곳을 묻는다 |
+
+**CSS**: 동욱 `v-`, 민수 `n-`. 전역 태그 셀렉터 금지. Quartz 클래스(`.center`, `.sidebar` 등)를 덮어쓸 때는 `body.v-split .center{}` 처럼 **자기 body 클래스 아래에서만**.
+**대시보드**는 독립 페이지 `web/notes/dashboard.html` (Quartz 밖, 발표용).
 
 ## 8. 대기 관계 (기다리는 사람이 없게)
 
 | 레인 | 남을 기다리는 것 | 그동안 쓰는 것 |
 |---|---|---|
-| front-dongwook | API(`/api/pages`, `/api/source`) | `mock/` (0분부터 완성품 만들 수 있음) |
-| front-minsu | API(`POST /api/notes`, `/api/stats`) | `mock/` + 저장은 `localStorage` 폴백 |
-| back-wooseok | 파이프라인의 `wiki/` 산출물 | 저장소에 **커밋된 `wiki/` 샘플 3페이지**를 그대로 파싱 |
+| front-dongwook | API(`/api/source`, `/api/segments`) | `tools/devserve.py` + `mock/` |
+| front-minsu | API(`/api/notes`, `/api/qa`, `/api/stats`) | `tools/devserve.py` + `mock/` + `localStorage` |
+| back-wooseok | 파이프라인의 `wiki/` 산출물 | 저장소에 **커밋된 `wiki/` 샘플**과 `raw/L3/` 로 출발 |
 | back-kyuchan | 없음 | — |
 
 **합류 시각**: 1:30 에 `USE_MOCK=false` 로 동시에 전환하고 팀장이 통합 점검한다. 그 전엔 아무도 남을 기다리지 않는다.
@@ -133,7 +179,7 @@ window.dispatchEvent(new CustomEvent('notes-closed', { detail: { lecture, k } })
 ## 9. 절대 하지 않는 것
 
 - 남의 디렉터리 수정 · `wiki/` `raw/` 손수정 · `CONTRACT.md` 무단 수정
-- `git commit` / `push` (사람이 한다) · 라이브러리 추가(프론트는 **빌드 없는 순수 HTML/CSS/JS**, 백엔드는 표준 라이브러리 + 이미 있는 것)
+- `git commit` / `push` (사람이 한다) · 라이브러리 추가(우리 프론트 코드는 **빌드 없는 순수 JS/CSS** — Quartz만 빌드한다) · `site/quartz/` 소스 수정
 - 앵커 없는 문장을 `## Current` 에 쓰기 · `notes/` `signals/` 를 앵커로 인용하기
 - 동작하는 것보다 예쁘게 만드는 것 — **심사는 동작 100%를 안 본다. 설계와 화면을 본다.**
 

@@ -7,3 +7,8 @@ __pycache__/
 wiki/.history.jsonl
 wiki/.inkling-map.json
 raw/**/*.mp4
+public/
+site/node_modules/
+site/.quartz-cache/
+site/.quartz/
+raw/.ytcache/*.tmp

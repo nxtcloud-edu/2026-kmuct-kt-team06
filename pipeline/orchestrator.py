@@ -62,6 +62,51 @@ def lecture_note_path(lecture, title=""):
     return f"wiki/lectures/{lecture}_{name}.md"
 
 
+_SECTION = re.compile(r"^## +(?:\d+\.\s*)?(.+?)\s*$", re.M)
+_FM_RE = re.compile(r"^---\n.*?\n---\n", re.S)
+
+
+def assemble_lecture_note(note_path, incoming, lecture, title="", course=""):
+    """강의 노트는 **코드가 조립**한다. 에이전트는 새 주제 섹션만 보내면 된다.
+
+    2026-09-20 실측(L7): 에이전트에게 '기존 파일 전체 + 새 주제'를 다시 쓰게 했더니 파일이 길어진 뒤로는
+    새 섹션만 보내 훅이 'missing frontmatter' 로 3회 거부 → 7주제 중 5개가 버려졌다.
+    - incoming 에서 '## ' 섹션만 뽑는다(프론트매터·H1·머리말은 버린다 — 전체 파일을 보내도 된다).
+    - 이미 노트에 있는 제목의 섹션은 건너뛴다(중복 방지). 번호는 코드가 이어 붙인다.
+    - 노트가 없으면 프론트매터·H1·머리말을 코드가 만든다(제목은 항상 큰따옴표).
+    반환: (full_content, added_count). 섹션이 하나도 없으면 (incoming, 0) — 훅이 사유를 알려 준다."""
+    import datetime as _dt
+    body = _FM_RE.sub("", incoming, count=1) if incoming.startswith("---") else incoming
+    parts = re.split(r"(?m)^(?=## )", body)
+    sections = [p.rstrip() for p in parts if p.startswith("## ")]
+    if not sections:
+        return incoming, 0
+    f = ROOT / note_path
+    existing = f.read_text(encoding="utf-8") if f.is_file() else ""
+    norm = lambda t: re.sub(r"\s+", " ", t).strip().lower()
+    have = {norm(m.group(1)) for m in _SECTION.finditer(existing)}
+    n = len(have)
+    out = []
+    for sec in sections:
+        head, _, rest = sec.partition("\n")
+        m = _SECTION.match(head)
+        name = m.group(1) if m else head[3:].strip()
+        if norm(name) in have:
+            continue
+        n += 1
+        have.add(norm(name))
+        out.append(f"## {n}. {name}\n{rest}".rstrip())
+    if not out:
+        return existing or incoming, 0
+    if not existing:
+        note_title = f"{lecture}. {title}" if title else f"{lecture}. 강의 노트"
+        existing = ("---\n" + f"title: {json.dumps(note_title, ensure_ascii=False)}\n" + "type: lecture\n"
+                    + f"sources: [{lecture}]\nstatus: draft\nupdated: {_dt.date.today().isoformat()}\nlinks: []\n---\n\n"
+                    + f"# {note_title}\n> 소스: {lecture}" + (f" · 과목: {course}" if course else "") + "\n"
+                    + "> 읽는 법: 주제마다 📄 슬라이드 → 💡 설명 → 🗣 교수님 말 → 🎯 포인트\n")
+    return existing.rstrip() + "\n\n" + "\n\n".join(out) + "\n", len(out)
+
+
 def run_compile_topic(lecture, s_from, s_to, run, on_progress=_noop, title="", course=""):
     """③ 한 주제(슬라이드 범위)를 컴파일한다. write_page 의 deny→allow 를 관리.
     반환: {"topic", "pages":[{path, attempts, verdict}], "status": "done|skipped|llm_error"}"""
@@ -79,11 +124,10 @@ def run_compile_topic(lecture, s_from, s_to, run, on_progress=_noop, title="", c
     note_title = f"{lecture}. {title}" if title else f"{lecture}. 강의 노트"
     user = (f"강의 {lecture} 의 슬라이드 {s_from}~{s_to} 를 컴파일한다. "
             f"episodic 은 read_episodic 으로 읽어라(lecture={lecture}, s_from={s_from}, s_to={s_to}). "
-            f"**이 강의의 노트 파일은 정확히 `{note_path}` 하나다. 다른 이름의 강의 노트 파일을 만들지 마라.** "
-            f"먼저 read_page 로 그 파일을 읽어라. 있으면: 기존 내용(프론트매터·기존 '## N.' 주제들)을 한 글자도 바꾸지 말고 "
-            f"그대로 둔 채, 맨 끝에 다음 번호의 '## N.' 주제 하나를 **추가한 전체 파일**을 write_page 로 써라. "
-            f"없으면: 프론트매터(title: \"{note_title}\" — 반드시 큰따옴표, type: lecture, sources: [{lecture}], status: draft)와 "
-            f"'# {note_title}', '> 소스: …'·'> 읽는 법: …' 두 줄, 그리고 '## 1.' 주제로 새로 만든다. "
+            f"**강의 노트는 `{note_path}` 하나다.** write_page(path=`{note_path}`, content=…) 의 content 에는 "
+            f"**이번 주제 섹션 하나만** 보내라: '## <주제 제목>' 줄로 시작해 '### 📄 슬라이드 (s{s_from}~{s_to})' · '### 💡 설명' · "
+            f"'> 🗣 …' · '### 🎯 포인트' 까지. 프론트매터·'# 제목'·기존 주제·주제 번호는 **코드가 붙인다** — 보내지 마라. "
+            f"거부(REJECTED)되면 사유에 적힌 곳만 고쳐 같은 방식으로 그 섹션만 다시 보내라. "
             f"필요하면 개념 페이지 wiki/concepts/<slug>.md 도 write_page 로 써라(이미 있으면 새로 만들지 말고 그 페이지에 추가). "
             f"앵커는 episodic 에 적힌 것만 옮긴다.")
     messages = [{"role": "user", "content": user}]
@@ -135,7 +179,12 @@ def run_compile_topic(lecture, s_from, s_to, run, on_progress=_noop, title="", c
                                      "content": f"{path} 는 3회 거부되어 건너뛴다. 다른 주제로."})
                     continue
                 attempts[path] = attempts.get(path, 0) + 1
-                verdict = T.write_page(path, args.get("content", ""), agent,
+                content = args.get("content", "")
+                if path.startswith("wiki/lectures/"):
+                    # 강의 1편 = 노트 1개: 에이전트가 어떤 이름을 대든 이 강의의 노트 파일로 모으고, 조립은 코드가 한다
+                    path = note_path
+                    content, _added = assemble_lecture_note(note_path, content, lecture, title, course)
+                verdict = T.write_page(path, content, agent,
                                        attempt=attempts[path], run=run)
                 if verdict.get("decision") == "allow":
                     pages.append({"path": path, "attempts": attempts[path], "verdict": "allow"})

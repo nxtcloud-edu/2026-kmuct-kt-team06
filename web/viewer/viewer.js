@@ -1201,7 +1201,7 @@
     heading(
       "AI 분석 중",
       ingest.title || "강의 자료 분석",
-      "창을 닫거나 다른 노트를 봐도 분석은 계속됩니다. 전체 강의는 보통 10~20분 걸립니다.",
+      "강의 1편 분석에는 보통 30분쯤 걸립니다(녹음만 올리면 음성 인식 시간이 더해집니다). 창을 닫거나 다른 노트를 봐도 분석은 계속되고, 끝난 주제부터 노트에 나타납니다.",
     );
     const card = el("div", "v-ingest-card");
     const head = el("div", "v-ingest-card-head");
@@ -1258,7 +1258,7 @@
     heading(
       "NEW LECTURE",
       "강의 자료 불러오기",
-      "슬라이드 PDF와 함께, 타임스탬프 전사본(.md · .json) 또는 녹음·영상 파일을 올려 주세요.",
+      "슬라이드 PDF와 함께, 타임스탬프 전사본(.md · .json) 또는 녹음·영상 파일을 올려 주세요. 강의 1편 분석에는 보통 30분쯤 걸립니다.",
     );
     if (folderName) main.append(el("p", "v-muted", `추가할 폴더: ${folderName}`));
     const form = el("form", "v-ingest-form");
@@ -1363,6 +1363,7 @@
     const summary = el("p", "v-ingest-summary", "");
     const hint = el("p", "v-ingest-hint", "");
     const start = btn("AI 분석 시작  →", "v-primary", () => submit());
+    const eta = el("p", "v-muted v-ingest-eta", "⏱ 예상 소요 시간: 약 30분 · 주제 하나에 3~4분씩, 끝난 주제부터 노트에 추가됩니다. 분석 중에도 다른 노트를 볼 수 있습니다.");
     const draw = () => {
       list.replaceChildren();
       for (const file of state.files) {
@@ -1478,6 +1479,7 @@
         "v-muted",
         "업로드한 자료는 서버에서 음성 인식 → 구간 정렬 → 노트 정리를 거쳐 위키 노트가 됩니다. 전체 강의는 보통 10~20분 걸립니다.",
       ),
+      eta,
       start,
     );
     draw();

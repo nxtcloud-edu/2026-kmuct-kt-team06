@@ -225,3 +225,4 @@ board.sh blocked "막힌 것"         3분 헤맸으면 바로
 board.sh human "A로 갈까 B로 갈까"  계약을 바꿔야 할 때 (레인 정지 → 팀장 승인)
 ```
 같은 오류가 3번째면 `~/.kiro/skills/adviser/ask.sh "질문"` (Fable 자문, 읽기 전용).
+test

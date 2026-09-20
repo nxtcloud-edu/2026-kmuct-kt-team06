@@ -9,7 +9,11 @@
   },
   "L2": {
     "course": "컴퓨터구조",
-    "date": "2026-09-15"
+    "date": "2026-09-15",
+    "video": {
+      "kind": "audio",
+      "src": "/raw/L2/L2.mp4"
+    }
   },
   "L3": {
     "video": {
@@ -21,11 +25,19 @@
   },
   "L4": {
     "course": "알고리즘",
-    "date": "2026-09-17"
+    "date": "2026-09-17",
+    "video": {
+      "kind": "audio",
+      "src": "/raw/L4/L4.mp4"
+    }
   },
   "L5": {
     "course": "시스템소프트웨어",
-    "date": "2026-09-16"
+    "date": "2026-09-16",
+    "video": {
+      "kind": "audio",
+      "src": "/raw/L5/L5.mp4"
+    }
   },
   "professorChannel": "UC_replace_with_real_channel_id"
 }

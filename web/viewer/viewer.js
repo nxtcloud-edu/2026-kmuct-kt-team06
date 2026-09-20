@@ -957,15 +957,25 @@
         } else {
           media = el(source.video.kind === "audio" ? "audio" : "video");
           media.controls = true;
-          media.src = source.video.src;
+          // 그 초에서 시작: ①미디어 프래그먼트(#t=) ②메타데이터 로드 시 seek ③재생 가능 시점에 한 번 더 확인.
+          // (메타데이터 직후의 seek 을 브라우저가 무시하고 0초부터 트는 경우가 있었다 — 2026-09-20 실사용 제보)
+          media.preload = "auto";
+          media.src = `${source.video.src}#t=${t}`;
           const player = media;
           let boundaryHandled = null;
+          const seekToAnchor = () => {
+            const target = Math.min(t, Number.isFinite(player.duration) ? player.duration : t);
+            if (Math.abs(player.currentTime - target) > 1.5) player.currentTime = target;
+          };
+          let settled = false;
           media.onloadedmetadata = () => {
-            player.currentTime = Math.min(
-              t,
-              Number.isFinite(player.duration) ? player.duration : t,
-            );
+            seekToAnchor();
             player.play().catch(() => {});
+          };
+          media.oncanplay = () => {
+            if (settled) return;
+            settled = true;
+            seekToAnchor();
           };
           media.onerror = () =>
             toast(

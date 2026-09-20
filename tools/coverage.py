@@ -41,15 +41,20 @@ def _items(md_text):
     return out
 
 
+# 절대경로로 준다 — grep_wiki 는 상대경로를 프로세스 CWD 기준으로 보므로, 서버가 저장소 루트가 아닌 곳에서
+# 뜨면 covered 만 0 으로 무너진다(실측: cwd=/ → 0/22).
+_WIKI_PATHS = [str(ROOT / "wiki" / "concepts"), str(ROOT / "wiki" / "lectures")]
+
+
 def _covered(item):
     """항목이 위키에 있나. 전체 문자열 grep, 없으면 의미 있는 핵심 토큰(3자+, 불용어 제외) 매칭."""
-    if grep_wiki(re.escape(item), paths=["wiki/concepts", "wiki/lectures"], max_hits=1):
+    if grep_wiki(re.escape(item), paths=_WIKI_PATHS, max_hits=1):
         return True
     # 흔한 조사·의존명사(STOP)와 짧은 토큰은 오탐이라 제외 — 개념어만 본다
     for tok in re.split(r"[\s,·/]+", item):
         tok = tok.strip("()")
         if len(_norm(tok)) >= 3 and tok not in STOP and \
-                grep_wiki(re.escape(tok), paths=["wiki/concepts", "wiki/lectures"], max_hits=1):
+                grep_wiki(re.escape(tok), paths=_WIKI_PATHS, max_hits=1):
             return True
     return False
 
@@ -66,7 +71,7 @@ def _uncovered_notes(lecture=None):
             continue
         anchor = m.group(1)
         # 그 앵커가 어떤 lectures/concepts 페이지에도 안 쓰였으면 미반영
-        if not grep_wiki(re.escape(anchor), paths=["wiki/concepts", "wiki/lectures"], max_hits=1):
+        if not grep_wiki(re.escape(anchor), paths=_WIKI_PATHS, max_hits=1):
             out.append(anchor)
     return out
 

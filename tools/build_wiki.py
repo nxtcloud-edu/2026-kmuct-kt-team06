@@ -14,6 +14,7 @@
 Quartz 의 --watch 는 -d 디렉터리(임시 복사본)를 감시하므로 원본 변경을 못 본다.
 그래서 여기서는 원본 wiki 의 mtime 을 폴링해 바뀌면 임시 복사 후 재빌드한다(계약 §5.3 "몇 초 뒤 화면에 나온다").
 """
+import json
 import re
 import shutil
 import subprocess
@@ -59,6 +60,36 @@ def _snapshot(src: Path, dst: Path):
                 hidden += 1
     if hidden:
         print(f"  (숨김: status:grey {hidden}개 페이지 빌드 제외)", file=sys.stderr)
+    fixed = sum(_sanitize_frontmatter(p) for p in dst.rglob("*.md"))
+    if fixed:
+        print(f"  (프론트매터 보정: {fixed}개 페이지 — 복사본에서만, 원본 불변)", file=sys.stderr)
+
+
+_FM = re.compile(r"^---\n(.*?)\n---\n", re.S)
+
+
+def _sanitize_frontmatter(p: Path) -> int:
+    """에이전트가 쓴 프론트매터가 YAML 로 안 읽히면 Quartz 빌드 **전체**가 죽는다(2026-09-20 실측 2건:
+    title 의 ': ', links 의 '[[a|b]], [[c]]'). 빌드용 복사본에서만 title·links 값을 JSON 문자열로 감싼다.
+    원본은 고치지 않는다 — 원본의 형식은 훅(write_page_guard)이 막을 일이다."""
+    text = p.read_text(encoding="utf-8")
+    m = _FM.match(text)
+    if not m:
+        return 0
+    out, changed = [], False
+    for line in m.group(1).split("\n"):
+        mm = re.match(r"^(title|links):\s*(.+)$", line)
+        if mm:
+            v = mm.group(2).strip()
+            quoted = v[:1] in "\"'" and v[-1:] == v[:1]
+            risky = (mm.group(1) == "links" and "[[" in v) or re.search(r":\s|\s#|^[>|*&!%@`]", v)
+            if not quoted and risky:
+                line = f"{mm.group(1)}: {json.dumps(v, ensure_ascii=False)}"
+                changed = True
+        out.append(line)
+    if changed:
+        p.write_text("---\n" + "\n".join(out) + "\n---\n" + text[m.end():], encoding="utf-8")
+    return int(changed)
 
 
 def build_once():

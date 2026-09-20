@@ -5,3 +5,4 @@
 - [ ] 3. (T3) 필기 패널 + 이벤트 3종 + 422 사유 표시 — R3.  **동욱과 같이 확인**
 - [ ] 4. (T4) `USE_MOCK=false` + 대시보드(훅 지표) + 검토함 — R4
 - [ ] 5. (T5) 발표 준비: 장표 5장 + 데모 녹화 백업(팀장과 상의) · 추천 질문 placeholder
+- [ ] 6. `docs/DESIGN.md` 반영: §0 Agent 패널 말풍선형(`… for 16 sec`) · §4 자료 불러오기(`webkitdirectory` 폴더 선택 → 자료 목록 → [만들기] → `POST /api/ingest`) · §5 만드는 중(`GET /api/ingest/{job}` 1초 폴링, 단계 이름 표시, 제목 입력) · §6 대시보드 도넛 3개(`/api/dashboard`, 측정 전이면 회색) + "이 부분이 헷갈려요"([▷듣기]=`anchor-request`, [수정]=`POST /api/transcript/fix`)

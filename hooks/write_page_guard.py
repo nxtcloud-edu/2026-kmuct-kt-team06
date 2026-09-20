@@ -98,6 +98,22 @@ def check_lecture(content):
 
 def check(ev):
     agent, tool = ev.get("agent", ""), ev.get("tool_name")
+    if tool == "fix_transcript":   # 대시보드 "이 부분이 헷갈려요" 의 [수정]. raw/ 를 고치는 유일한 길
+        lec, t0, text = ev["tool_input"].get("lecture", ""), ev["tool_input"].get("t_start"), ev["tool_input"].get("text", "")
+        if agent != "user":
+            return deny(f"{agent} may only write under []: fix_transcript is user-only")
+        if not re.fullmatch(r"L\d+", lec or ""):
+            return deny("path escapes wiki/: bad lecture id")
+        if not text.strip() or len(text) > 500:
+            return deny("transcript fix larger than 500 chars or empty")
+        if UNSAFE.search(text) or ANCHOR.search(text):
+            return deny("raw HTML/script is not allowed in wiki content")
+        tp = RAW / lec / "transcript.json"
+        rows = json.loads(tp.read_text(encoding="utf-8")) if tp.exists() else []
+        if not any(abs(r["t_start"] - float(t0 if t0 is not None else -1)) < 0.05 for r in rows):
+            return deny(f"anchor: {lec} has no segment sentence at t={t0} (points to no segment)")
+        log({"agent": agent, "tool": tool, "path": f"raw/{lec}/corrections.jsonl", "verdict": "allow", "attempt": 1, "run": ev.get("run")})
+        return {"decision": "allow"}
     if tool not in ("write_page", "append_episodic", "save_note"):
         return {"decision": "allow"}
     path = ev["tool_input"].get("path", "")

@@ -1,0 +1,81 @@
+{
+ "overall": 0.74,
+ "stt": 0.65,
+ "summary": 0.8,
+ "measured": {
+  "stt": true,
+  "summary": true
+ },
+ "confusing": [
+  {
+   "lecture": "L3",
+   "t_start": 372.0,
+   "t_end": 380.5,
+   "text": "네 감사합니다",
+   "agree": 0.31,
+   "anchor": "L3#s6@t=372"
+  },
+  {
+   "lecture": "L3",
+   "t_start": 330.0,
+   "t_end": 336.0,
+   "text": "스몰 리스트 파스터 그래서 큐를 씁니다",
+   "agree": 0.47,
+   "anchor": "L3#s5@t=330"
+  }
+ ],
+ "hooks": {
+  "writes_total": 11,
+  "allowed": 4,
+  "denied": 7,
+  "deny_rate": 0.636,
+  "pages_written": 4,
+  "first_pass": 2,
+  "rescued_after_deny": 2,
+  "blocked_for_good": 4,
+  "first_pass_rate": 0.5,
+  "avg_attempts_to_pass": 1.75,
+  "by_rule": [
+   {
+    "rule": "R04_no_anchor",
+    "label": "앵커·형식 없음",
+    "count": 2
+   },
+   {
+    "rule": "R01_write_root",
+    "label": "쓰기 루트 밖",
+    "count": 2
+   },
+   {
+    "rule": "R05_dead_anchor",
+    "label": "없는 구간 앵커",
+    "count": 1
+   },
+   {
+    "rule": "R09_status_only",
+    "label": "승인인 척 본문 수정",
+    "count": 1
+   },
+   {
+    "rule": "R08_unsafe_html",
+    "label": "HTML 삽입",
+    "count": 1
+   }
+  ],
+  "by_agent": {
+   "compile": {
+    "deny": 5,
+    "allow": 3
+   },
+   "signal-ingest": {
+    "deny": 1
+   },
+   "user": {
+    "allow": 1,
+    "deny": 1
+   }
+  },
+  "anchors_written": 19,
+  "quotes_written": 3
+ }
+}

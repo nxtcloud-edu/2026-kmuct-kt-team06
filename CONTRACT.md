@@ -82,7 +82,7 @@
 | 메서드 | 경로 | 응답 |
 |---|---|---|
 | GET | `/api/segments/{lecture}` | `{lecture, video:{kind:"mp4"\|"youtube"\|"audio", src}, segments:[...§4.1]}` |
-| GET | `/api/source?anchor=L3%23s7%40t%3D340` | `{lecture:"L3", k, s, t_start, t_end, frame:"/raw/L3/seg_7_final.jpg"\|null, slide:"..."\|null, video:{kind,src}, ocr, exists:true}` · 없으면 404 `SOURCE_NOT_FOUND` |
+| GET | `/api/source?anchor=L3%23s7%40t%3D340` | `{lecture:"L3", k, s, t_start, t_end, frame:"/raw/L3/seg_7_final.jpg"\|null, slide:"..."\|null, video:{kind,src}, ocr, exists:true, quote, date}` — `quote` = 그 초의 전사 원문(최대 120자), `date` = 강의 날짜. 출처 말풍선용(DESIGN §3) · 없으면 404 `SOURCE_NOT_FOUND` |
 | GET | `/api/notes/{lecture}` | `[{k, s, text, anchor, frame, updated}]` |
 | POST | `/api/notes` | 요청 `{lecture:"L3", k:7, text:"..."}` → `{ok:true, path, anchor, frame}` · WritePolicy 거부 시 **422** `{"error":{"code":"WRITE_REJECTED","message":"<훅이 준 이유 그대로>"}}` |
 | GET | `/api/stats` | `{lectures, pages, approved, draft, grey, links, notes, coverage:{covered, total}, hooks:{…}}` — `hooks` = `tools.hook_metrics.metrics()` 그대로(시도·통과·거부·거부 후 재작성 통과·규칙별·에이전트별·앵커 수). 모양은 `mock/stats.json` |
@@ -92,6 +92,10 @@
 | GET | `/api/quotes?q=` | `[{lecture, t, s, quote, anchor, agree\|null}]` 시간순 — 전사본 원문에서 교수 실제 발언만(PRD §4.9). `from tools.quote_search import search` 그대로. LLM 없음 |
 | GET | `/api/review` | `[{id, kind:"low_confidence"\|"grey"\|"rewritten"\|"quote_mismatch"\|"merge"\|"stt_uncertain", lecture, slug, anchor\|null, text, reason}]` — 사람이 확인할 목록(PRD §4.8). 전부 기존 데이터에서 계산. `low_confidence` 는 강의당 점수 낮은 순 5개(문턱값 아님, PRD §8.7) — **화면에 숫자를 확률처럼 보여 주지 않는다** |
 | POST | `/api/review/approve` | 요청 `{id}` → `{ok:true}` · `agent:"user"` 로 WritePolicy 통과(프론트매터 `status:` 만 변경). 거부 시 422 `WRITE_REJECTED` |
+| POST | `/api/ingest` | multipart `files[]`(미디어·전사본·pdf) + `title` + `course` → `{job, lecture:"L4"}`. 파일은 `raw/L{n}/` 에. 확장자 화이트리스트(mp4 m4a mp3 wav txt md json pdf), 합계 500MB, 파일명은 서버가 새로 짓는다 |
+| GET | `/api/ingest/{job}` | `{lecture, stage:"upload"\|"stt"\|"align"\|"episodic"\|"compile"\|"build"\|"done"\|"error", percent, detail, error\|null}` — 파이프라인 실제 단계에서 온다(가짜 타이머 금지) |
+| GET | `/api/dashboard?course=` | `{overall, stt, summary, measured:{stt:bool, summary:bool}, confusing:[{lecture, t_start, t_end, text, agree, anchor}], hooks:{…}}` — 정의는 `docs/DESIGN.md` §6. 값은 0~1, 측정 전이면 `null` |
+| POST | `/api/transcript/fix` | 요청 `{lecture, t_start, text}` → `{ok:true}` · `agent:"user"`, `tool_name:"fix_transcript"` 로 훅 통과(500자·HTML 금지·그 문장이 실제로 있어야 함). `raw/L{n}/corrections.jsonl` 에 덧붙이고 그 문장의 `agree`=1.0, `reviewed`=true. 원문은 지우지 않는다 |
 | GET | `/api/models` | `[{id:"fast", label:"빠름 · gpt-5.4-nano"}, ...]` — LLM 패널 드롭다운용 |
 
 ### 5.1 영상 카드
@@ -138,6 +142,9 @@ const API = (p) => USE_MOCK ? `/mock${p.replace('/api','').split('?')[0]}.json` 
 POST는 목이 없다 → `USE_MOCK` 이면 필기는 `localStorage`, QA는 `mock/qa.json` 을 GET.
 
 ## 7. 화면 — Quartz 위에 얹는다
+
+**화면 모양의 정본은 `docs/DESIGN.md`(팀 스케치 6장).** 이 절은 레인 사이의 약속(주입·마운트·슬롯·이벤트)만 정한다. 오른쪽 패널의 이름은 **Agent**.
+
 
 **Quartz가 그리는 것**(우리는 안 만든다): 위키 본문, 왼쪽 탐색기, 검색, 백링크, 그래프, 다크 모드.
 **우리가 얹는 것**: 앵커 칩 · 미니 플레이어 → split · 필기 · LLM 패널.

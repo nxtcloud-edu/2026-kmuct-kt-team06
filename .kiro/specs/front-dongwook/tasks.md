@@ -8,3 +8,4 @@
 - [ ] 4. (T3) split + 슬롯 2개 + 구간 끝 자동 정지 + `segment-boundary` / `note-saved` / `notes-closed` — R5.  **민수와 같이 확인**
 - [ ] 5. (T4) `USE_MOCK=false` 전환 · `context-request` 응답 · 필기 있는 구간 노란 마커
 - [ ] 6. (T5) 옵시디언풍 다크 테마(`site/quartz.config.yaml`) · Quartz 오른쪽 사이드바가 채팅과 겹치면 끄기 · 에러 토스트 · R6
+- [ ] 7. `docs/DESIGN.md` 반영: §0 왼쪽 사이드바에 `대시보드`·`파일추가 ⊕`·사용자 칸 얹기 · §1 미니 플레이어 ⏪▶⏩(이전/다음 **구간**)·↗ 펼치기 · §1 "교수님 요약" 상자(🗣+🎯★ 를 DOM 에서 모음) · §3 출처 말풍선(`/api/source` 의 `quote`·`date`) · §2 위키 링크 미리보기는 **Quartz 팝오버가 이미 한다 — 스타일만**

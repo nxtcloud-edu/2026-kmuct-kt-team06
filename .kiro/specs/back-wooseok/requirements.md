@@ -32,3 +32,16 @@
 ## R6 유튜브 보충 (F-13)
 - THE SYSTEM SHALL `api/youtube.py search(q)` 에서 TranscriptAPI 를 HTTP 로 부르고(교수 채널 먼저), 응답을 `raw/.ytcache/<sha1>.json` 에 캐시한다.
 - IF 키가 없거나 호출이 실패하면 THEN THE SYSTEM SHALL `[]` 를 돌려주고 QA 응답은 정상으로 준다.
+
+## R7 자료 불러오기 (F-17, `docs/DESIGN.md` §4~5)
+- WHEN `POST /api/ingest` 로 파일들과 `title`·`course` 를 받으면 THE SYSTEM SHALL 확장자 화이트리스트(mp4 m4a mp3 wav txt md json pdf)와 합계 500MB 를 검사하고, **서버가 지은 파일명**으로 `raw/L{n}/` 에 저장한 뒤 `{job, lecture}` 를 즉시 돌려준다.
+- THE SYSTEM SHALL 파이프라인을 백그라운드 스레드로 돌리고 `GET /api/ingest/{job}` 에서 실제 단계(`upload→stt→align→episodic→compile→build→done`)와 percent 를 준다.
+- IF 어느 단계가 실패하면 THEN THE SYSTEM SHALL `stage:"error"` 와 사람이 읽을 `error` 를 주고 서버는 계속 돈다.
+- IF 전사본 파일이 없으면 THEN THE SYSTEM SHALL `tools/stt_grok.py` 로 전사한다. 슬라이드 교본은 EC2에 lecture-md 가 없으므로 `pdftotext -f k -l k` 로 `<!-- page k -->` 구분 md 를 만든다.
+
+## R8 대시보드 수치 · 전사 수정 (F-18)
+- WHEN `GET /api/dashboard?course=` 를 받으면 THE SYSTEM SHALL `{overall, stt, summary, measured, confusing[], hooks}` 를 준다. `stt` = `agree` 의 문장 길이 가중 평균(수정된 문장은 1.0), `summary` = 비평 통과율 × 인용 대조 통과율, `overall` = 둘의 조화평균. 측정 전 값은 `null`.
+- WHEN `POST /api/transcript/fix {lecture,t_start,text}` 를 받으면 THE SYSTEM SHALL `tool_name:"fix_transcript"`, `agent:"user"` 로 훅에 태우고, allow 면 `raw/L{n}/corrections.jsonl` 에 덧붙이고 그 문장의 `agree`=1.0·`reviewed`=true 로 갱신한다. 원문은 지우지 않는다.
+
+## R9 출처 말풍선 (F-19)
+- THE SYSTEM SHALL `/api/source` 응답에 `quote`(그 초가 속한 전사 문장, 120자에서 자름)와 `date` 를 싣는다.

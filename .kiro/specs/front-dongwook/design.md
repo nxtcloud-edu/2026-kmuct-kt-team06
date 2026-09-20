@@ -1,5 +1,5 @@
 # Design — front-dongwook
-> ⏸ **시각 디자인(레이아웃·색·모양)은 팀에서 그리는 중 — 확정 전.** 아래에서 유효한 것은 동작·이벤트·슬롯·마운트 규칙뿐이다. 디자인이 오면 CSS와 DOM 모양은 그쪽을 따른다. **백엔드 두 레인이 먼저 출발한다.**
+> 🎨 **화면 정본 = `docs/DESIGN.md`(팀 스케치 6장, 9/20 11:32).** 모양은 그쪽을 따르고, 아래는 구현 메모다. 오른쪽 패널 이름은 **Agent**.
 - 파일: `web/viewer/viewer.js` · `viewer.css` (+ `site/quartz.config.yaml`). 서버가 모든 HTML에 주입한다(CONTRACT §7.1) → import/번들 없음, 전역 오염 금지(IIFE 하나).
 - 구조: `#v-root`(html 직속, fixed) ⊃ `#v-mini`(플레이어) · `#v-pane`(split: 위 미디어, 아래 `#note-slot`) · `#chat-slot`(맨 오른쪽 열) · `#v-selbtn` · `#v-toast`
 - 상태: `state = {segments:{L3:[…]}, current:{lecture,k}, autopause:true}` — 모듈 변수. 구간표는 강의당 1회 fetch 후 캐시.

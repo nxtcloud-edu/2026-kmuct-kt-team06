@@ -25,3 +25,7 @@
 ## R5 통합
 - WHEN 1:30 이 되면 THE TEAM SHALL 세 레인의 `USE_MOCK=false` 를 동시에 전환하고, 계약 어긋남은 **고칠 쪽을 팀장이 한 곳만** 정한다.
 - WHEN 2:30 이 되면 THE TEAM SHALL `board.sh hold all` 후 새 기능을 넣지 않는다.
+
+## R6 진행률 콜백 (F-17)
+- THE SYSTEM SHALL 오케스트레이터에 `on_progress(stage, percent, detail)` 콜백을 받아 단계가 바뀔 때와 ③의 주제 하나가 끝날 때마다 부른다(우석의 `/api/ingest/{job}` 가 이걸 읽는다).
+- THE SYSTEM SHALL `pipeline/run.py L{n} --title … --course …` 한 줄로 ①~⑤ 를 끝까지 돌린다(서버 없이도).

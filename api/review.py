@@ -145,6 +145,27 @@ def review_list() -> list:
     return items
 
 
+def _set_status(item_id: str, new_status: str, expected_prefix: str = "page:"):
+    """프론트매터 status: 한 줄만 new_status 로 바꾸고 agent:user 훅 통과 시에만 쓴다.
+    approve/hide 공용. 본문 수정은 훅(R09_status_only)이 막는다.
+    반환: (ok, payload_or_reason_tuple)
+    """
+    if not item_id or not item_id.startswith(expected_prefix):
+        return False, (400, "BAD_ID", f"expects a {expected_prefix}<slug> id")
+    slug = item_id[len(expected_prefix):]
+    path = f"wiki/{slug}.md"
+    abs_path = ROOT / path
+    if not abs_path.is_file():
+        return False, (404, "PAGE_NOT_FOUND", f"no page {slug}")
+    old = abs_path.read_text(encoding="utf-8")
+    new = re.sub(r"^status:.*$", f"status: {new_status}", old, count=1, flags=re.M)
+    ok, reason, _rule = run_guard("user", "write_page", path=path, content=new)
+    if not ok:
+        return False, (422, "WRITE_REJECTED", reason)
+    abs_path.write_text(new, encoding="utf-8")
+    return True, {"ok": True, "status": new_status}
+
+
 def approve(item_id: str):
     """status: 를 approved 로 바꾼다. agent:user 로 훅 통과할 때만 실제로 쓴다.
 
@@ -152,18 +173,16 @@ def approve(item_id: str):
     seg:<lec>:<k> — segments.json 의 reviewed:true (구간 항목). 여기서는 page 만 다룬다.
     반환: (ok, payload_or_reason_tuple)
     """
-    if not item_id or not item_id.startswith("page:"):
-        return False, (400, "BAD_ID", "approve expects a page:<slug> id")
-    slug = item_id[len("page:"):]
-    path = f"wiki/{slug}.md"
-    abs_path = ROOT / path
-    if not abs_path.is_file():
-        return False, (404, "PAGE_NOT_FOUND", f"no page {slug}")
-    old = abs_path.read_text(encoding="utf-8")
-    # 프론트매터 status: 한 줄만 approved 로. 본문은 그대로.
-    new = re.sub(r"^status:.*$", "status: approved", old, count=1, flags=re.M)
-    ok, reason, _rule = run_guard("user", "write_page", path=path, content=new)
+    ok, result = _set_status(item_id, "approved")
     if not ok:
-        return False, (422, "WRITE_REJECTED", reason)
-    abs_path.write_text(new, encoding="utf-8")
-    return True, {"ok": True}
+        return ok, result
+    return True, {"ok": True}  # approve 응답 모양 유지(status 필드 없음)
+
+
+def hide(item_id: str):
+    """숨기기(#44) — 삭제 대신 검토함으로 내린다. status: 를 grey 로.
+    위키는 append-only 라 지우지 않는다. 복원은 approve() 로.
+
+    id 형태: page:<slug>. 응답 {ok:true, status:'grey'}. 오류는 approve 와 동일.
+    """
+    return _set_status(item_id, "grey")

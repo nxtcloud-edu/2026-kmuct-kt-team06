@@ -236,6 +236,18 @@ def api_review_approve(params, query, body):
     raise ApiError(status, code, message)
 
 
+@route("POST", r"/api/review/hide")
+def api_review_hide(params, query, body):
+    """{id:'page:<slug>'} → status: grey (삭제 대신 숨기기, #44). 복원은 approve."""
+    if not isinstance(body, dict):
+        raise ApiError(400, "BAD_REQUEST", "JSON body required")
+    ok, result = review_mod.hide(body.get("id", ""))
+    if ok:
+        return 200, result
+    status, code, message = result
+    raise ApiError(status, code, message)
+
+
 # ── HTTP 핸들러 ────────────────────────────────────────────────
 class Handler(BaseHTTPRequestHandler):
     server_version = "karonton/0.1"
@@ -259,6 +271,7 @@ class Handler(BaseHTTPRequestHandler):
 
     # 쓰기·과금 경로 — DEMO_TOKEN 이 설정돼 있으면 X-Demo-Token 일치 필요(§5.4)
     _PROTECTED = {("POST", "/api/notes"), ("POST", "/api/qa"), ("POST", "/api/review/approve"),
+                  ("POST", "/api/review/hide"),
                   ("POST", "/api/transcript/fix"), ("POST", "/api/ingest")}
 
     def _check_token(self, method: str, path: str) -> bool:

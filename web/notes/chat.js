@@ -86,15 +86,7 @@
       send,
     );
     form.append(input, controls);
-    footer.append(
-      attached,
-      form,
-      el(
-        "small",
-        "n-chat-disclaimer",
-        "답변의 원본 근거를 함께 확인해 주세요.",
-      ),
-    );
+    footer.append(attached, form);
     window.addEventListener("context-reply", (e) => {
       context = e.detail;
       attached.replaceChildren(

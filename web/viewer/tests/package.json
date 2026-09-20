@@ -1,6 +1,9 @@
 {
   "name": "motga-frontend-browser-tests",
   "private": true,
-  "scripts": { "test": "node smoke.cjs && node api.cjs" },
+  "scripts": {
+    "test": "node smoke.cjs && node api.cjs && node folders.cjs && node review.cjs",
+    "test:features": "node folders.cjs && node review.cjs"
+  },
   "devDependencies": { "playwright": "1.63.0" }
 }

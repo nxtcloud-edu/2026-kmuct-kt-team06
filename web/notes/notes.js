@@ -5,6 +5,158 @@
   const { el, btn, api, state, toast, emit, read, save } = A;
   let active, editor, slot;
   const drafts = new Map();
+  const correctionDrafts = new Map();
+  let stopReviewAudio = () => {};
+  window.addEventListener("view-changed", () => stopReviewAudio());
+  window.addEventListener("pagehide", () => stopReviewAudio());
+
+  function transcriptReview(main, review) {
+    const section = el("section", "n-transcript-review");
+    section.setAttribute("aria-label", "이 부분이 헷갈려요!");
+    const items = review.filter((item) =>
+      ["stt_uncertain", "quote_mismatch"].includes(item.kind),
+    );
+    section.append(el("h2", "", "이 부분이 헷갈려요!"),
+      el("p", "v-muted", "음성을 듣고 잘못 인식된 문장을 정정해 주세요. 정정 내용은 이 브라우저에 저장됩니다."));
+    if (!items.length) section.append(el("p", "v-empty", "지금은 정정이 필요한 문장이 없어요."));
+    for (const item of items) {
+      const key = `${item.lecture}:${item.id}`;
+      const saved = read("motga-transcript-corrections", {})[key];
+      const card = el("article", "n-transcript-card");
+      const meta = el("div", "n-transcript-meta");
+      const match = /^(L\d+)#s(\d+)@t=(\d+)$/.exec(item.anchor || "");
+      meta.append(el("span", "n-review-label", "전사 정정"),
+        el("span", "v-muted", `${item.lecture}${match ? ` · ${A.time(+match[3])}` : ""}`));
+      const quoteRow = el("div", "n-transcript-quote-row");
+      const quote = el("blockquote", "n-transcript-quote", item.text);
+      const error = el("p", "n-error");
+      error.setAttribute("role", "alert");
+      const status = el("p", "n-correction-status", saved ? "✓ 정정 내용 저장됨" : "");
+      status.setAttribute("role", "status");
+      let audio = null;
+      let playing = false;
+      let request = 0;
+      function stop() {
+        request++;
+        audio?.pause();
+        if (audio) {
+          audio.removeAttribute("src");
+          audio.load();
+          audio = null;
+        }
+        playing = false;
+        play.disabled = !match;
+        play.textContent = "▶ 음성 듣기";
+        play.setAttribute("aria-pressed", "false");
+      }
+      const play = btn("▶ 음성 듣기", "v-secondary n-transcript-play", async () => {
+        if (playing) { stop(); return; }
+        stopReviewAudio();
+        stopReviewAudio = stop;
+        const token = ++request;
+        play.disabled = true;
+        play.textContent = "불러오는 중…";
+        error.textContent = "";
+        try {
+          const data = await api(`/api/segments/${match[1]}`);
+          if (token !== request || !card.isConnected) return;
+          const start = +match[3];
+          const segment = data.segments.find((s) => s.s === +match[2] && s.t_start <= start && start < s.t_end);
+          if (!segment) throw new Error("해당 음성 구간을 찾을 수 없습니다.");
+          const source = state.mock ? data : await api(`/api/source?anchor=${encodeURIComponent(item.anchor)}`);
+          if (token !== request || !card.isConnected) return;
+          if (!source.video?.src || source.video.kind === "youtube")
+            throw new Error("바로 들을 수 있는 원본 음성이 연결되지 않았습니다.");
+          const url = new URL(source.video.src, location.origin);
+          if (!["http:", "https:"].includes(url.protocol)) throw new Error("지원하지 않는 음성 주소입니다.");
+          audio = new Audio();
+          const player = audio;
+          player.preload = "auto";
+          player.onloadedmetadata = async () => {
+            if (token !== request) return;
+            if (Number.isFinite(player.duration) && start >= player.duration) {
+              error.textContent = "원본 음성에 해당 시간 구간이 없습니다.";
+              stop();
+              return;
+            }
+            player.currentTime = start;
+            try {
+              await player.play();
+              if (token !== request) return;
+              playing = true;
+              play.disabled = false;
+              play.textContent = "■ 듣기 중지";
+              play.setAttribute("aria-pressed", "true");
+            } catch {
+              if (token !== request) return;
+              error.textContent = "음성을 재생하지 못했습니다. 다시 시도해 주세요.";
+              stop();
+            }
+          };
+          player.ontimeupdate = () => {
+            if (player.currentTime >= segment.t_end) stop();
+          };
+          player.onended = stop;
+          player.onerror = () => {
+            if (token !== request) return;
+            error.textContent = "원본 음성을 불러올 수 없습니다. 음성 파일 연결을 확인해 주세요.";
+            stop();
+          };
+          player.src = url.href;
+        } catch (e) {
+          if (token !== request) return;
+          error.textContent = e.message;
+          stop();
+        }
+      });
+      play.disabled = !match;
+      play.setAttribute("aria-label", `${item.text} 음성 듣기`);
+      play.setAttribute("aria-pressed", "false");
+      if (!match) play.title = "연결된 음성 구간이 없습니다.";
+      quoteRow.append(quote, play);
+      const form = el("form", "n-correction-form");
+      const input = el("textarea", "n-correction-input");
+      input.rows = 2;
+      input.maxLength = 4000;
+      input.placeholder = "정확한 문장을 입력해 주세요";
+      input.setAttribute("aria-label", `${item.text} 정정 문구`);
+      input.value = correctionDrafts.get(key) ?? saved?.text ?? "";
+      const submit = btn("정정", "v-primary");
+      submit.type = "submit";
+      input.oninput = () => {
+        correctionDrafts.set(key, input.value);
+        status.textContent = "저장하지 않은 변경 사항";
+        error.textContent = "";
+      };
+      form.onsubmit = (event) => {
+        event.preventDefault();
+        const text = input.value.trim();
+        if (!text) {
+          error.textContent = "정정할 문장을 입력해 주세요.";
+          input.focus();
+          return;
+        }
+        const corrections = read("motga-transcript-corrections", {});
+        corrections[key] = {
+          id: item.id, lecture: item.lecture, anchor: item.anchor,
+          original: item.text, text, updated: new Date().toISOString(),
+        };
+        if (!save("motga-transcript-corrections", corrections)) {
+          error.textContent = "정정 내용을 저장하지 못했습니다. 입력한 문장을 보관한 뒤 다시 시도해 주세요.";
+          return;
+        }
+        correctionDrafts.delete(key);
+        input.value = text;
+        error.textContent = "";
+        status.textContent = "✓ 정정 내용 저장됨";
+        toast("정정 내용을 저장했습니다.");
+      };
+      form.append(input, submit);
+      card.append(meta, quoteRow, form, status, error);
+      section.append(card);
+    }
+    main.append(section);
+  }
   function init() {
     slot = document.getElementById("note-slot");
     if (!slot || slot.dataset.ready) return;
@@ -156,6 +308,7 @@
         numbers.append(n);
       }
       main.append(numbers);
+      transcriptReview(main, review);
       const reviews = el("section", "n-reviews");
       const title = el("h2", "", "이 부분을 함께 확인해 주세요");
       reviews.append(
@@ -168,7 +321,7 @@
       );
       main.append(reviews);
       const approved = state.mock ? read("motga-approved", []) : [];
-      let remaining = review.filter((r) => !approved.includes(r.id));
+      let remaining = review.filter((r) => !approved.includes(r.id) && !["stt_uncertain", "quote_mismatch"].includes(r.kind));
       const count = el("span", "n-count", `${remaining.length}개 검토 필요`);
       reviews.append(count);
       if (!remaining.length)

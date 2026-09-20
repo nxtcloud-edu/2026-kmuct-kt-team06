@@ -27,12 +27,18 @@
     anchor: null,
     files: [],
     local: read("motga-documents", []),
+    folders: read("motga-folders", []),
+    collapsedFolders: new Set(read("motga-collapsed-folders", [])),
+    uploadFolder: null,
     // 기본은 실서버(/api). 저장된 설정이 없는 새 브라우저(발표장·심사위원)가 샘플 응답을 보지 않게 한다.
     // API 없이 화면만 개발할 때는 설정(⚙)에서 "샘플 데이터"를 켠다.
     mock: read("motga-mock", false),
     hiddenSlugs: new Set(read("motga-hidden-slugs", [])),
     page: null,
   };
+  function closeMobileMenu() {
+    if (root && root.classList.contains("v-menu-open")) root.classList.remove("v-menu-open");
+  }
   function toast(message) {
     const n = el("div", "v-toast", message);
     n.setAttribute("role", "status");
@@ -117,9 +123,10 @@
       parent.append(document.createTextNode(text.slice(last, m.index)));
       if (m[0].startsWith("[[L")) parent.append(anchor(m[0]));
       else if (m[1]) {
-        const concept = btn(m[2] || m[1].split("/").pop(), "v-concept", () =>
-          show("note", m[1]),
-        );
+        const concept = btn(m[2] || m[1].split("/").pop(), "v-concept", () => {
+          closeMobileMenu();
+          show("note", m[1]);
+        });
         const preview = pages.find((p) => p.slug === m[1]);
         parent.append(concept);
       } else if (m[4]) {
@@ -181,55 +188,16 @@
         () => show("trash"),
       ),
       el("div", "v-nav-label", "내 라이브러리"),
-      el("div", "v-folder", "⌄  ▱  알고리즘"),
     );
-    for (const p of pages.filter((p) => p.type === "lecture" && !state.hiddenSlugs.has(p.slug))) {
-      const item = el("div", "v-nav-local-row");
-      const link = btn(
-        `▤  ${p.title.replace(/^L\d+\. /, "").split(" — ")[0]}`,
-        `v-nav v-file ${state.slug === p.slug && state.view === "note" ? "active" : ""}`,
-        () => show("note", p.slug),
-      );
-      const del = btn("🗑", "v-icon-button v-nav-delete", (e) => {
-        e.stopPropagation();
-        deleteNote(p.slug);
-      });
-      del.title = "노트 숨기기";
-      del.setAttribute("aria-label", `${p.title} 삭제`);
-      item.append(link, del);
-      nav.append(item);
-    }
-    nav.append(el("div", "v-folder", "⌄  ▱  개념 노트"));
-    for (const p of pages.filter((p) => p.type === "concept" && !state.hiddenSlugs.has(p.slug))) {
-      const item = el("div", "v-nav-local-row");
-      const link = btn(
-        `◇  ${p.title}`,
-        `v-nav v-file ${state.slug === p.slug && state.view === "note" ? "active" : ""}`,
-        () => show("note", p.slug),
-      );
-      const del = btn("🗑", "v-icon-button v-nav-delete", (e) => {
-        e.stopPropagation();
-        deleteNote(p.slug);
-      });
-      del.title = "노트 숨기기";
-      del.setAttribute("aria-label", `${p.title} 삭제`);
-      item.append(link, del);
-      nav.append(item);
-    }
-    for (const p of state.local) {
-      const item = el("div", "v-nav-local-row");
-      const link = btn(`▤  ${p.title}`, "v-nav v-file", () => show("local", p.id));
-      const del = btn("🗑", "v-icon-button v-nav-delete", (e) => {
-        e.stopPropagation();
-        deleteLocal(p.id);
-      });
-      del.title = "노트 삭제";
-      del.setAttribute("aria-label", `${p.title} 삭제`);
-      item.append(link, del);
-      nav.append(item);
-    }
+    renderFolder(nav, { id: "lectures", name: "알고리즘", type: "lecture" });
+    renderFolder(nav, { id: "concepts", name: "개념 노트", type: "concept" });
+    for (const p of state.local.filter((p) => !p.folderId))
+      renderFile(nav, p, true);
     const bottom = el("div", "v-sidebar-bottom");
-    bottom.append(btn("＋  강의 자료 추가", "v-add", () => show("upload")));
+    bottom.append(btn("＋  강의 자료 추가", "v-add", () => {
+      state.uploadFolder = null;
+      show("upload");
+    }));
     const profile = btn("", "v-profile", settings);
     const profileAvatar = el("span", "v-profile-avatar", "L");
     const profileName = el("span", "v-profile-name", "Lecki");
@@ -239,6 +207,114 @@
     bottom.append(profile);
     nav.append(bottom);
   }
+  function renderFile(parent, p, local = false) {
+    const id = local ? p.id : p.slug;
+    const view = local ? "local" : "note";
+    const title = !local && p.type === "lecture"
+      ? p.title.replace(/^L\d+\. /, "").split(" —")[0] : p.title;
+    const row = el("div", "v-nav-local-row");
+    row.append(btn(
+      `${p.type === "concept" ? "◇" : "▤"}  ${title}`,
+      `v-nav v-file ${state.slug === id && state.view === view ? "active" : ""}`,
+      () => show(view, id),
+    ));
+    const del = btn("🗑", "v-icon-button v-nav-delete", () =>
+      local ? deleteLocal(id) : deleteNote(id),
+    );
+    del.title = local ? "노트 삭제" : "노트 숨기기";
+    del.setAttribute("aria-label", `${p.title} 삭제`);
+    row.append(del);
+    parent.append(row);
+  }
+  function renderFolder(parent, folder) {
+    const section = el("div", "v-folder-section");
+    section.dataset.folderId = folder.id;
+    const row = el("div", "v-folder-row");
+    const children = el("div", "v-folder-children");
+    children.id = `folder-${folder.id}`;
+    children.hidden = state.collapsedFolders.has(folder.id);
+    const toggle = btn("", "v-folder", () => {
+      const next = new Set(state.collapsedFolders);
+      if (next.has(folder.id)) next.delete(folder.id);
+      else next.add(folder.id);
+      if (!save("motga-collapsed-folders", [...next])) return;
+      state.collapsedFolders = next;
+      children.hidden = next.has(folder.id);
+      updateToggle();
+    });
+    function updateToggle() {
+      toggle.textContent = `${children.hidden ? "›" : "⌄"}  ▱  ${folder.name}`;
+      toggle.setAttribute("aria-expanded", String(!children.hidden));
+    }
+    toggle.setAttribute("aria-label", folder.name);
+    toggle.setAttribute("aria-controls", children.id);
+    updateToggle();
+    const add = btn("+", "v-icon-button v-folder-add", () => addToFolder(folder));
+    add.title = `${folder.name}에 추가`;
+    add.setAttribute("aria-label", add.title);
+    row.append(toggle, add);
+    for (const child of state.folders.filter((f) => f.parentId === folder.id))
+      renderFolder(children, child);
+    if (folder.type)
+      for (const p of pages.filter((p) => p.type === folder.type && !state.hiddenSlugs.has(p.slug)))
+        renderFile(children, p);
+    for (const p of state.local.filter((p) => p.folderId === folder.id))
+      renderFile(children, p, true);
+    if (!children.childElementCount)
+      children.append(el("p", "v-folder-empty", "비어 있는 폴더"));
+    section.append(row, children);
+    parent.append(section);
+  }
+  function expandFolder(id) {
+    while (id) {
+      state.collapsedFolders.delete(id);
+      id = state.folders.find((f) => f.id === id)?.parentId;
+    }
+    save("motga-collapsed-folders", [...state.collapsedFolders]);
+  }
+  function addToFolder(folder) {
+    const dialog = el("dialog", "v-dialog");
+    dialog.setAttribute("aria-label", `${folder.name}에 추가`);
+    const form = el("form", "v-folder-form");
+    const name = el("input", "v-search-input");
+    name.placeholder = "새 폴더 이름";
+    name.setAttribute("aria-label", "새 폴더 이름");
+    name.required = true;
+    name.maxLength = 80;
+    const create = btn("폴더 만들기", "v-primary");
+    create.type = "submit";
+    form.onsubmit = (event) => {
+      event.preventDefault();
+      const title = name.value.trim();
+      name.setCustomValidity(!title ? "폴더 이름을 입력해 주세요." :
+        state.folders.some((f) => f.parentId === folder.id && f.name === title)
+          ? "같은 이름의 폴더가 있습니다." : "");
+      if (!name.reportValidity()) return;
+      const folders = [...state.folders, {
+        id: `folder-${crypto.randomUUID()}`, parentId: folder.id, name: title,
+      }];
+      if (!save("motga-folders", folders)) return;
+      state.folders = folders;
+      expandFolder(folder.id);
+      dialog.close();
+      sidebar();
+      toast("하위 폴더를 만들었습니다.");
+    };
+    name.oninput = () => name.setCustomValidity("");
+    form.append(name, create);
+    dialog.append(el("h2", "", `${folder.name}에 추가`), form,
+      btn("파일 추가", "v-primary", () => {
+        state.uploadFolder = folder.id;
+        dialog.close();
+        show("upload");
+      }),
+      btn("취소", "v-secondary", () => dialog.close()),
+    );
+    dialog.addEventListener("close", () => dialog.remove());
+    root.append(dialog);
+    dialog.showModal();
+    name.focus();
+  }
   function heading(eyebrow, title, subtitle) {
     main.append(el("div", "v-eyebrow", eyebrow), el("h1", "", title));
     if (subtitle) main.append(el("p", "v-subtitle", subtitle));
@@ -246,10 +322,16 @@
   async function show(view, slug) {
     state.view = view;
     if (slug) state.slug = slug;
+    closeMobileMenu();
     sidebar();
     main.replaceChildren();
     main.scrollTop = 0;
-    root.classList.remove("v-menu-open");
+    emit("view-changed", { view });
+    if (view === "dashboard") {
+      heading("MY LEARNING", "대시보드");
+      emit("dashboard-open", { main });
+      return;
+    }
     if (view === "trash") {
       const hidden = pages.filter((p) => state.hiddenSlugs.has(p.slug));
       heading(
@@ -442,11 +524,16 @@
     input.focus();
   }
   function upload() {
+    const folderId = state.uploadFolder;
+    const folderName = folderId === "lectures" ? "알고리즘" :
+      folderId === "concepts" ? "개념 노트" :
+      state.folders.find((f) => f.id === folderId)?.name;
     heading(
       "NEW LECTURE",
       "강의 자료 불러오기",
       "흩어져 있던 강의 영상과 전사본, 슬라이드를 한곳에 모으세요.",
     );
+    if (folderName) main.append(el("p", "v-muted", `추가할 폴더: ${folderName}`));
     const input = el("input");
     input.type = "file";
     input.multiple = true;
@@ -538,12 +625,14 @@
         const p = {
           id: `local-${Date.now()}`,
           title: name,
+          folderId,
           text,
           files: selected.map((f) => f.name),
         };
         if (!save("motga-documents", [...state.local, p]))
           throw new Error("자료를 저장하지 못했습니다.");
         state.local.push(p);
+        if (folderId) expandFolder(folderId);
         localAssets.set(
           p.id,
           selected
@@ -786,14 +875,7 @@
           };
           host.append(media);
         }
-      } else
-        host.append(
-          el(
-            "div",
-            "v-media-empty",
-            "▷  원본 영상 미등록 · 샘플 프레임을 표시합니다",
-          ),
-        );
+      }
       emit("anchor-open", { lecture, s, t, anchor: clean });
       emit("segment-boundary", {
         lecture,
@@ -835,10 +917,41 @@
     const ph = el("div", "v-player-head");
     const pt = el("strong", "", "원본 보기");
     pt.id = "v-source-title";
+    const fullscreen = btn("↔", "v-icon-button", async () => {
+      if (document.fullscreenElement === pane) {
+        await document.exitFullscreen();
+      } else if (pane.classList.contains("v-player-fullscreen")) {
+        pane.classList.remove("v-player-fullscreen");
+      } else {
+        try {
+          await pane.requestFullscreen();
+        } catch {
+          pane.classList.add("v-player-fullscreen");
+        }
+      }
+      syncFullscreen();
+    });
+    function syncFullscreen() {
+      const expanded = document.fullscreenElement === pane || pane.classList.contains("v-player-fullscreen");
+      fullscreen.title = expanded ? "전체 화면 종료" : "전체 화면";
+      fullscreen.setAttribute("aria-label", fullscreen.title);
+      fullscreen.setAttribute("aria-pressed", String(expanded));
+    }
+    syncFullscreen();
+    document.addEventListener("fullscreenchange", syncFullscreen);
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        pane.classList.remove("v-player-fullscreen");
+        syncFullscreen();
+      }
+    });
     ph.append(
       pt,
-      btn("↔", "v-icon-button", () => root.classList.toggle("v-split")),
+      fullscreen,
       btn("×", "v-icon-button", () => {
+        if (document.fullscreenElement === pane) document.exitFullscreen().catch(() => {});
+        pane.classList.remove("v-player-fullscreen");
+        syncFullscreen();
         pane.hidden = true;
         media?.pause();
         root.classList.remove("v-has-player", "v-split");
@@ -853,7 +966,7 @@
     pane.append(ph, frame, mh);
     let dragState = null;
     ph.addEventListener("pointerdown", (event) => {
-      if (event.target.closest("button")) return;
+      if (event.target.closest("button") || document.fullscreenElement === pane || pane.classList.contains("v-player-fullscreen")) return;
       dragState = {
         x: event.clientX,
         y: event.clientY,

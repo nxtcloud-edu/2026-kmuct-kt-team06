@@ -40,3 +40,6 @@ wiki/signals/coverage.md
 
 # 실제 위키로 만든 뷰어 목록(실강의 산출물) — tools/build_library.py 가 생성
 web/viewer/library.local.json
+
+# 비평 결과(실강의 문장 포함, 실행마다 바뀜) — .history.jsonl 과 같이 추적하지 않는다
+wiki/.critic.jsonl

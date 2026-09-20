@@ -12,3 +12,10 @@ site/node_modules/
 site/.quartz-cache/
 site/.quartz/
 raw/.ytcache/*.tmp
+
+# 실제 강의 자료·설문 원본은 저장소에 올리지 않는다 (PRD §8.5 ②). 견본 L3만 예외
+raw/L*/
+!raw/L3/
+raw/L3/*.mp4
+*.xlsx
+private/

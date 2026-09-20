@@ -16,6 +16,10 @@
 4. 레인 4개에 `board.sh order` 전송
 5. 팀원 IP 등록: 각자 `board.sh ip` → `board.sh allow <ip> "현장"`
 
+### ⚠️ 시작 전에 (PRD §8.5 ①②)
+- **녹음+PDF 강의는 구간표가 자동으로 안 나온다.** 데모 강의의 `raw/L{n}/segments.json` 을 미리 만든다: PDF → `pdftoppm` 슬라이드 PNG·텍스트, 다글로 전사본 → `transcript.json`, 슬라이드 단어가 전사본에 몰려 나오는 지점으로 경계 초안 → 사람이 5분 검수 → `hooks/frame_guard.py` 통과 확인
+- **진짜 강의 자료는 커밋 금지**(`raw/L*` 실데이터·설문 xlsx). EC2에는 scp. 저장소에는 가짜 견본 L3만
+
 ### T1 (0:00–0:30) `source_exists` 채우기 + 훅 완성
 - `write_page_guard.py` 의 `source_exists()` 스텁 → `frame_guard.source_exists` 로 교체 (**s 일치 + t 구간 안**)
 - `agent: "user"` / `agent: "signal-ingest"` 쓰기 루트 추가, `[[note:` `[[signal:` 앵커 거부

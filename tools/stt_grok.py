@@ -46,7 +46,7 @@ def main():
     dur = float(subprocess.check_output(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(src)]))
     result, t = [], 0.0
     with tempfile.TemporaryDirectory() as td:
-        while t < dur:
+        while dur - t > 1.0:  # 1초 미만 꼬리는 보내지 않는다
             part = Path(td) / f"part_{int(t)}.mp3"
             subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-ss", str(t), "-t", str(chunk), "-i", str(src),
                             "-ac", "1", "-ar", "16000", "-b:a", "48k", str(part)], check=True)

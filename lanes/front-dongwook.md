@@ -27,11 +27,11 @@ python3 tools/devserve.py 8000
 - **드래그 → `원본 보기`**(CONTRACT §7.2b): `selectionchange`/`mouseup` 에서 선택 영역 위에 작은 버튼 `#v-selbtn` 을 띄우고, 클릭하면 그 블록(`p`/`li`/`blockquote`)의 첫 `.v-anchor`, 없으면 같은 주제(`h2` 사이)에서 바로 앞 칩으로 점프
 - 점프 시 `slide` 가 있으면 슬라이드 이미지, 없으면 `frame`. `video.kind:"audio"` 면 `<audio>` + 슬라이드 크게
 - `anchor-open` 발사. `anchor-request` 수신(민수 채팅 패널이 쏜다) → 같은 점프
-- 페이지를 옮겨도 미니 플레이어는 **살아 있어야** 한다(재생 끊기지 않게 body 직속)
+- 페이지를 옮겨도 미니 플레이어는 **살아 있어야** 한다 → **`<body>` 가 아니라 `<html>` 에 붙인 `#v-root` 안에**(CONTRACT §7.3 — Quartz가 body 자식을 매번 갈아엎는다). 상태 클래스도 `html.v-split`
 - **완료 조건**: 칩 3개 + **드래그 1번**으로 영상(또는 녹음)이 점프하고 슬라이드가 같이 뜬다.
 
 ### T3 (1:00–1:30) split + 구간 끝 자동 정지
-- 미니 플레이어 클릭 → `body.classList.add('v-split')`: Quartz `.center` 를 좁히고 오른쪽에 `#v-pane`(위=플레이어·프레임, 아래=`<aside id="note-slot">`). 접기 버튼
+- 미니 플레이어 클릭 → `document.documentElement.classList.add('v-split')`: `html.v-split body{margin-right:…}` 로 Quartz 를 좁히고 오른쪽에 `#v-pane`(위=플레이어·프레임, 아래=`<aside id="note-slot">`). 접기 버튼
 - `<aside id="chat-slot">` 도 여기서 만든다(맨 오른쪽 열, 접기 가능). **두 슬롯의 안쪽은 건드리지 않는다**
 - `/api/segments/L3` 구간표 → mp4 `timeupdate` / 유튜브 250ms 폴링 → `t_end` 통과 시 `pause()` + (닫혀 있으면 split 열고) `segment-boundary` 발사
 - `note-saved`/`notes-closed` → `play()`. "구간 끝에서 멈추기" 토글(기본 켬)
@@ -40,6 +40,8 @@ python3 tools/devserve.py 8000
 ### T4 (1:30–2:00) 진짜 API + `context-request`
 - `USE_MOCK=false`. `context-request` 를 받으면 `context-reply {slug, anchor}` 로 지금 페이지·마지막 앵커를 답한다
 - 필기 있는 구간은 타임라인에 노란 마커
+
+- 엣지: 같은 칩 연타 · 영상 로드 전 클릭(`loadedmetadata` 뒤에 seek) · `t` 가 영상 길이보다 큼 · 유튜브 IFrame API 로드 실패(토스트 + 새 탭 링크) · 필기 패널 열린 채 페이지 이동(재생 상태 유지)
 
 ### T5 (2:00–2:30) 다듬기
 - `site/quartz.config.yaml` 색·폰트를 옵시디언풍 다크로(기본 다크 모드). Quartz 오른쪽 사이드바(TOC·그래프)가 LLM 패널과 겹치면 config 에서 끈다

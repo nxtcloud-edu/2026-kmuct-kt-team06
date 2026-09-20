@@ -6,7 +6,7 @@
 - /            → public/ (Quartz 빌드 결과). HTML 응답에는 INJECT 를 </body> 앞에 끼운다  ← CONTRACT §7.1
 - /web /mock /raw → 저장소의 같은 이름 디렉터리
 """
-import http.server, mimetypes, sys
+import http.server, mimetypes, re, sys, unicodedata
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -27,14 +27,46 @@ def inject(html: bytes) -> bytes:
 
 def resolve(url_path: str) -> Path | None:
     rel = url_path.split("?")[0].split("#")[0].strip("/")
-    base = ROOT if rel.split("/")[0] in PASS else ROOT / "public"
-    p = (base / rel).resolve()
-    if not str(p).startswith(str(ROOT)):
-        return None
-    for c in (p, p.with_suffix(".html"), p / "index.html"):
-        if c.is_file():
-            return c
+    first = rel.split("/")[0]
+    base = ROOT if first in PASS else ROOT / "public"
+    jail = (ROOT / first) if first in PASS else (ROOT / "public")   # /web/../.env 처럼 허용 폴더를 딛고 나가는 것을 막는다
+    for form in ("NFC", "NFD"):  # 맥에서 만든 한글 파일명(NFD)과 URL(NFC)이 리눅스에서 어긋난다
+        p = (base / unicodedata.normalize(form, rel)).resolve()
+        if p != jail and jail not in p.parents:
+            return None
+        if any(part.startswith(".") for part in p.relative_to(ROOT).parts):
+            return None  # .env · .git · .ytcache 같은 점 파일은 절대 서빙하지 않는다
+        for c in (p, p.parent / (p.name + ".html"), p / "index.html"):
+            if c.is_file():
+                return c
     return None
+
+
+def send_bytes(h, code, ctype, body):
+    """Range 지원 — 없으면 브라우저가 mp4·m4a 를 **탐색(seek)하지 못한다** = 앵커 점프가 안 된다."""
+    total, start, end = len(body), 0, len(body) - 1
+    m = re.match(r"bytes=(\d*)-(\d*)$", h.headers.get("Range", "") or "")
+    if m and code == 200 and (m.group(1) or m.group(2)):
+        if m.group(1):
+            start = int(m.group(1)); end = min(int(m.group(2)), end) if m.group(2) else end
+        else:
+            start = max(total - int(m.group(2)), 0)
+        if start > end or start >= total:
+            h.send_response(416); h.send_header("Content-Range", f"bytes */{total}"); h.end_headers(); return
+        code = 206
+    h.send_response(code)
+    h.send_header("Content-Type", ctype)
+    h.send_header("Accept-Ranges", "bytes")
+    if code == 206:
+        h.send_header("Content-Range", f"bytes {start}-{end}/{total}")
+    h.send_header("Content-Length", str(end - start + 1))
+    h.send_header("Cache-Control", "no-store")
+    h.end_headers()
+    if h.command != "HEAD":
+        try:
+            h.wfile.write(body[start:end + 1])
+        except (BrokenPipeError, ConnectionResetError):
+            pass  # 영상 탐색 때 브라우저가 연결을 끊는 건 정상
 
 
 class H(http.server.BaseHTTPRequestHandler):
@@ -50,12 +82,9 @@ class H(http.server.BaseHTTPRequestHandler):
         if ctype == "text/html":
             body = inject(body)
             ctype += "; charset=utf-8"
-        self.send_response(code)
-        self.send_header("Content-Type", ctype)
-        self.send_header("Content-Length", str(len(body)))
-        self.send_header("Cache-Control", "no-store")
-        self.end_headers()
-        self.wfile.write(body)
+        send_bytes(self, code, ctype, body)
+
+    do_HEAD = do_GET
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@
   "agent": "user",
   "tool": "save_note",
   "path": "wiki/notes/L3/s7.md",
-  "verdict": "ALLOW",
+  "verdict": "allow",
   "reason": ""
  },
  {
@@ -12,7 +12,7 @@
   "agent": "compile",
   "tool": "write_page",
   "path": "wiki/concepts/graph-representation.md",
-  "verdict": "REJECTED",
+  "verdict": "deny",
   "reason": "anchor [[L3#s2@t=999]]: L3 s2 has no segment at t=999"
  },
  {
@@ -20,7 +20,7 @@
   "agent": "user",
   "tool": "save_note",
   "path": "wiki/notes/L3/s5.md",
-  "verdict": "ALLOW",
+  "verdict": "allow",
   "reason": ""
  },
  {
@@ -28,7 +28,7 @@
   "agent": "compile",
   "tool": "write_page",
   "path": "wiki/concepts/dfs.md",
-  "verdict": "ALLOW",
+  "verdict": "allow",
   "reason": ""
  },
  {
@@ -36,7 +36,7 @@
   "agent": "compile",
   "tool": "write_page",
   "path": "wiki/concepts/dfs.md",
-  "verdict": "REJECTED",
+  "verdict": "deny",
   "reason": "paragraph 2 has no anchor in ## Current"
  },
  {
@@ -44,7 +44,7 @@
   "agent": "compile",
   "tool": "write_page",
   "path": "wiki/concepts/bfs.md",
-  "verdict": "ALLOW",
+  "verdict": "allow",
   "reason": ""
  },
  {
@@ -52,7 +52,7 @@
   "agent": "align",
   "tool": "append_episodic",
   "path": "wiki/episodic/L3.md",
-  "verdict": "ALLOW",
+  "verdict": "allow",
   "reason": ""
  },
  {
@@ -60,7 +60,7 @@
   "agent": "signal-ingest",
   "tool": "write_page",
   "path": "wiki/concepts/bfs.md",
-  "verdict": "REJECTED",
+  "verdict": "deny",
   "reason": "agent signal-ingest may only write under wiki/signals/"
  },
  {
@@ -68,7 +68,7 @@
   "agent": "align",
   "tool": "append_episodic",
   "path": "wiki/episodic/L3.md",
-  "verdict": "ALLOW",
+  "verdict": "allow",
   "reason": ""
  },
  {
@@ -76,7 +76,7 @@
   "agent": "compile",
   "tool": "write_page",
   "path": "wiki/concepts/bfs.md",
-  "verdict": "REJECTED",
+  "verdict": "deny",
   "reason": "anchor [[note:L3/s5]] is not a source anchor"
  }
 ]

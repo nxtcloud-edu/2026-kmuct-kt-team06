@@ -121,6 +121,10 @@ def main():
     if len(args) < 3:
         sys.exit(__doc__)
     slides, paras = read_slides(args[0]), read_transcript(args[1])
+    if not slides:
+        sys.exit("교본에 '<!-- page N -->' 구분이 없다 — lecture-md 스킬 출력이 맞나?")
+    if not paras:
+        sys.exit("전사본에서 문단을 못 읽었다 — '## HH:MM:SS' 머리말(다글로) 또는 transcript.json 이어야 한다")
     out = Path(args[2]); out.mkdir(parents=True, exist_ok=True)
     dur = float(sys.argv[sys.argv.index("--duration") + 1]) if "--duration" in sys.argv else paras[-1]["t_start"] + 60
     for p, nxt in zip(paras, paras[1:] + [{"t_start": dur}]):

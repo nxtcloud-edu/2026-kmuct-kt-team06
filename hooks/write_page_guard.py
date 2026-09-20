@@ -10,15 +10,18 @@ ANCHOR = re.compile(r"\[\[L(\d+)#s(\d+)@t=(\d+)(?:-(\d+))?\]\]")
 WRITE_ROOTS = {
     "compile": ["wiki/concepts/", "wiki/lectures/"],
     "align":   ["wiki/episodic/"],
+    "user":    ["wiki/notes/", "wiki/concepts/", "wiki/lectures/"],   # notes 는 쓰기, 나머지는 status 한 줄만(아래)
+    "signal-ingest": ["wiki/signals/"],
     "linker":  ["wiki/index.md", "wiki/TAXONOMY.md", "wiki/concepts/", "wiki/lectures/"],
 }
-AUDIT = pathlib.Path("wiki/.history.jsonl")
+ROOT = pathlib.Path(__file__).resolve().parent.parent   # cwd 가 어디든 같은 파일을 본다
+AUDIT = ROOT / "wiki/.history.jsonl"
 
 def deny(reason): return {"decision": "block", "reason": f"REJECTED: {reason}"}
 def sha(s):       return hashlib.sha256(s.encode()).hexdigest()[:12]
 def body(c):      return c.split("---", 2)[-1] if c.count("---") >= 2 else c
 
-RAW = pathlib.Path(__file__).resolve().parent.parent / "raw"
+RAW = ROOT / "raw"
 
 def source_exists(L, s, t):
     """앵커가 raw/L{L}/segments.json 의 실제 구간(s 일치 + t_start<=t<=t_end)을 가리키나."""
@@ -31,6 +34,10 @@ def source_exists(L, s, t):
 
 YOUTUBE = re.compile(r"https?://(?:www\.)?(?:youtube\.com|youtu\.be)/\S+")
 EXTERNAL = re.compile(r"https?://\S+")
+UNSAFE = re.compile(r"<\s*(script|iframe|object|embed|style|link|meta)\b|<[^>]*\bon\w+\s*=|\]\(\s*javascript:", re.I)
+CODE = re.compile(r"```.*?```|`[^`\n]*`", re.S)   # 코드 블록 안의 <object>, onload= 는 글자일 뿐이다
+RANGE = re.compile(r"\[\[L\d+#s\d+@t=\d+-\d+\]\]")
+NOTE_PATH = re.compile(r"^wiki/notes/L\d+/s\d+\.md$")
 FAKE_ANCHOR = re.compile(r"\[\[(?:note|signal):")
 
 def check_lecture(content):
@@ -70,7 +77,7 @@ def check_lecture(content):
 
 def check(ev):
     agent, tool = ev.get("agent", ""), ev.get("tool_name")
-    if tool not in ("write_page", "append_episodic"):
+    if tool not in ("write_page", "append_episodic", "save_note"):
         return {"decision": "allow"}
     path = ev["tool_input"].get("path", "")
     content = ev["tool_input"].get("content", "")
@@ -78,8 +85,32 @@ def check(ev):
     roots = WRITE_ROOTS.get(agent, [])
     if not any(path.startswith(r) for r in roots):
         return deny(f"{agent} may only write under {roots}, got '{path}'")
-    if ".." in path:
+    if ".." in path or path.startswith("/") or "\\" in path or "\x00" in path:
         return deny("path escapes wiki/")
+    if UNSAFE.search(CODE.sub("", content)):
+        return deny("raw HTML/script is not allowed in wiki content")
+    if RANGE.search(content):
+        return deny("range anchors (@t=340-372) are not supported; use a single second")
+    old_text = (ROOT / path).read_text(encoding="utf-8") if (ROOT / path).is_file() else ""
+
+    if agent == "user":
+        if path.startswith("wiki/notes/"):
+            if not NOTE_PATH.match(path):
+                return deny("note path must be wiki/notes/L{n}/s{k}.md")
+            if len(content.encode()) > 8192:
+                return deny("note larger than 8KB")
+            m = re.search(r"^anchor:\s*L(\d+)#s(\d+)@t=(\d+)\s*$", content, re.M)
+            if not m or not source_exists(int(m.group(1)), int(m.group(2)), int(m.group(3))):
+                return deny("note anchor missing or points to no segment")
+            if ANCHOR.search(body(content)):
+                return deny("notes cannot contain source anchors")
+        else:  # 검토함 승인: 프론트매터 status 한 줄만 바꿀 수 있다
+            strip = lambda c: re.sub(r"^status:.*$", "status:", c, flags=re.M)
+            if not old_text or strip(old_text) != strip(content):
+                return deny("user may only change frontmatter 'status:' on wiki pages")
+        log({"agent": agent, "tool": tool, "path": path, "verdict": "allow",
+             "beforeSha": sha(old_text), "afterSha": sha(content), "beforeContent": old_text, "afterContent": content})
+        return {"decision": "allow"}
 
     if tool == "write_page":
         if not content.startswith("---"):
@@ -102,7 +133,7 @@ def check(ev):
                 if not ANCHOR.search(para):
                     return deny(f"paragraph without anchor: '{para.strip()[:60]}'")
             if agent == "linker":
-                old = pathlib.Path(path).read_text() if pathlib.Path(path).exists() else ""
+                old = old_text
                 if body(old).strip() != body(content).strip():
                     return deny("linker may only change frontmatter 'links:'")
 
@@ -111,7 +142,7 @@ def check(ev):
         if not source_exists(L, s, t):
             return deny(f"anchor {m.group(0)}: L{L} slide {s} has no segment at t={t}")
 
-    old = pathlib.Path(path).read_text() if pathlib.Path(path).exists() else ""
+    old = old_text
     log({"agent": agent, "tool": tool, "path": path, "verdict": "allow",
          "beforeSha": sha(old), "afterSha": sha(content),
          "beforeContent": old, "afterContent": content})

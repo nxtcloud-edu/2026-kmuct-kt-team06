@@ -107,6 +107,16 @@
 - `/web/**` `/raw/**` `/mock/**` → 저장소의 같은 디렉터리
 - Quartz 재빌드는 별도 프로세스: `cd site && npx quartz build -d ../wiki -o ../public --watch` (팀장이 띄운다). 파이프라인이 `wiki/` 에 쓰면 몇 초 뒤 화면에 나온다.
 
+### 5.4 엣지케이스 규칙 (9/20 점검에서 나온 것)
+- **정적 서빙은 반드시 `tools/devserve.py` 의 `resolve()` 로.** 직접 `open(ROOT/path)` 하지 마라 — `/web/../.env` 로 **API 키 파일이 그대로 내려가는 구멍을 실측으로 잡았다**(수정됨: 허용 폴더 안에 가두고 점 파일 차단).
+- **Range 요청(206)** 은 `send_bytes()` 가 처리한다. 없으면 브라우저가 mp4·m4a 를 **탐색하지 못해 앵커 점프가 안 된다.** 그대로 써라.
+- `history` 의 `verdict` 값은 **`allow` / `deny`** (훅이 실제로 쓰는 값). 화면 표기만 "REJECTED".
+- 필기 앵커의 초: `t = int(t_end)`, 단 `t < t_start` 면 `t = ceil(t_start)`. 같은 `(lecture,k)` 에 다시 저장하면 **덮어쓴다**(이전 내용은 history 에 남는다).
+- `?anchor=` 가 구간표에 없으면 404 이지 500 이 아니다. `lecture` 파라미터는 `^L\d+$` 만 받는다(경로 조립에 쓰이므로).
+- `/api/qa` `/api/notes` `/api/review/approve` 는 **쓰기·과금 경로**다. EC2는 공개 IP → 환경변수 `DEMO_TOKEN` 이 있으면 쿠키/헤더 `X-Demo-Token` 일치할 때만 받는다(없으면 401). `/api/qa` 는 IP당 분당 10회.
+- 질문·검색어는 500자에서 자른다. 빈 검색어는 `[]`.
+- Quartz `--watch` 가 다시 빌드하는 1~2초 동안 `public/` 파일이 잠깐 없다 → 404 대신 0.5초 뒤 1회 재시도.
+
 **프론트는 401/403/500을 토스트로 띄우고 죽지 않는다.**
 
 ## 6. 목(mock) — 프론트는 0분부터 시작한다
@@ -165,7 +175,9 @@ POST는 목이 없다 → `USE_MOCK` 이면 필기는 `localStorage`, QA는 `moc
 점프하면 **한 번에 셋이 뜬다**: ① 영상·녹음이 그 초로 이동 ② `slide` 가 있으면 그 PPT 슬라이드 이미지(`/raw/L{n}/slides/s{s}.png`) ③ 없으면 `frame`. **녹음만 있는 강의**(`video.kind:"audio"`)는 `<audio>` 플레이어 + 슬라이드 이미지를 크게.
 
 ### 7.3 슬롯 (동욱이 만들고, 민수가 채운다)
-`viewer.js` 가 `nav` 때 `document.body` 에 없으면 만든다. **안쪽 DOM은 민수 것.**
+⚠️ **`<body>` 에 붙이면 안 된다(✅ 9/20 소스 확인).** Quartz는 페이지를 옮길 때 `micromorph(document.body, 새 body)` 로 body 의 **자식과 속성을 새 HTML에 맞춰 버린다** → body 에 붙인 미니 플레이어·슬롯은 매번 지워지고(재생이 끊긴다), `body.classList` 도 초기화된다.
+→ 우리 UI의 뿌리는 **`document.documentElement`(= `<html>`) 에 붙인 `<div id="v-root">` 하나**(`position:fixed`). 상태 클래스도 `<html>` 에: `html.v-split`, `html.v-chat-open`. Quartz 레이아웃을 좁힐 때는 `html.v-split body { margin-right: ... }`.
+`viewer.js` 가 `#v-root` 안에 없으면 만든다. **안쪽 DOM은 민수 것.**
 ```html
 <aside id="note-slot"></aside>   <!-- split 아래쪽 -->
 <aside id="chat-slot"></aside>   <!-- 맨 오른쪽 열 -->
@@ -180,6 +192,7 @@ POST는 목이 없다 → `USE_MOCK` 이면 필기는 `localStorage`, QA는 `moc
 | `note-saved` / `notes-closed` | notes → viewer | `{lecture, k}` — 재생 재개 |
 | `context-request` → `context-reply` | chat → viewer → chat | reply `{slug, anchor\|null}` — `＋` 버튼이 지금 보는 곳을 묻는다 |
 
+**사용자·모델이 쓴 글은 전부 `textContent` 로 넣는다. `innerHTML` 금지**(필기·인용문·답변·검토 카드 — 저장형 XSS). 앵커 칩만 DOM API 로 만든다.
 **CSS**: 동욱 `v-`, 민수 `n-`. 전역 태그 셀렉터 금지. Quartz 클래스(`.center`, `.sidebar` 등)를 덮어쓸 때는 `body.v-split .center{}` 처럼 **자기 body 클래스 아래에서만**.
 **대시보드**는 독립 페이지 `web/notes/dashboard.html` (Quartz 밖, 발표용).
 

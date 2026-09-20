@@ -14,6 +14,9 @@ SENT = re.compile(r"[^.?!]+[.?!]?")
 
 
 def search(q, raw="raw", limit=50):
+    q = (q or "").strip()
+    if len(q) < 2:  # 빈 검색어는 모든 문장에 걸린다
+        return []
     out = []
     for d in sorted(Path(raw).glob("L*")):
         tp, sp = d / "transcript.json", d / "segments.json"

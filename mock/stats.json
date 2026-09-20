@@ -1,0 +1,13 @@
+{
+ "lectures": 1,
+ "pages": 4,
+ "approved": 2,
+ "draft": 1,
+ "grey": 1,
+ "links": 8,
+ "notes": 2,
+ "coverage": {
+  "covered": 7,
+  "total": 12
+ }
+}

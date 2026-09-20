@@ -1,0 +1,82 @@
+[
+ {
+  "ts": "2026-09-20T09:12:31",
+  "agent": "user",
+  "tool": "save_note",
+  "path": "wiki/notes/L3/s7.md",
+  "verdict": "ALLOW",
+  "reason": ""
+ },
+ {
+  "ts": "2026-09-20T09:11:02",
+  "agent": "compile",
+  "tool": "write_page",
+  "path": "wiki/concepts/graph-representation.md",
+  "verdict": "REJECTED",
+  "reason": "anchor [[L3#s2@t=999]]: L3 s2 has no segment at t=999"
+ },
+ {
+  "ts": "2026-09-20T09:10:44",
+  "agent": "user",
+  "tool": "save_note",
+  "path": "wiki/notes/L3/s5.md",
+  "verdict": "ALLOW",
+  "reason": ""
+ },
+ {
+  "ts": "2026-09-20T09:09:10",
+  "agent": "compile",
+  "tool": "write_page",
+  "path": "wiki/concepts/dfs.md",
+  "verdict": "ALLOW",
+  "reason": ""
+ },
+ {
+  "ts": "2026-09-20T09:08:55",
+  "agent": "compile",
+  "tool": "write_page",
+  "path": "wiki/concepts/dfs.md",
+  "verdict": "REJECTED",
+  "reason": "paragraph 2 has no anchor in ## Current"
+ },
+ {
+  "ts": "2026-09-20T09:07:20",
+  "agent": "compile",
+  "tool": "write_page",
+  "path": "wiki/concepts/bfs.md",
+  "verdict": "ALLOW",
+  "reason": ""
+ },
+ {
+  "ts": "2026-09-20T09:06:03",
+  "agent": "align",
+  "tool": "append_episodic",
+  "path": "wiki/episodic/L3.md",
+  "verdict": "ALLOW",
+  "reason": ""
+ },
+ {
+  "ts": "2026-09-20T09:05:41",
+  "agent": "signal-ingest",
+  "tool": "write_page",
+  "path": "wiki/concepts/bfs.md",
+  "verdict": "REJECTED",
+  "reason": "agent signal-ingest may only write under wiki/signals/"
+ },
+ {
+  "ts": "2026-09-20T09:05:02",
+  "agent": "align",
+  "tool": "append_episodic",
+  "path": "wiki/episodic/L3.md",
+  "verdict": "ALLOW",
+  "reason": ""
+ },
+ {
+  "ts": "2026-09-20T09:04:18",
+  "agent": "compile",
+  "tool": "write_page",
+  "path": "wiki/concepts/bfs.md",
+  "verdict": "REJECTED",
+  "reason": "anchor [[note:L3/s5]] is not a source anchor"
+ }
+]

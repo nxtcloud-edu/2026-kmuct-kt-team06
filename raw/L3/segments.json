@@ -1,0 +1,82 @@
+[
+ {
+  "k": 1,
+  "kind": "board",
+  "s": 1,
+  "t_start": 0.0,
+  "t_end": 142.6,
+  "final_frame": "seg_1_final.jpg",
+  "ocr": "그래프 G=(V,E)",
+  "ocr_engine": "tesseract"
+ },
+ {
+  "k": 2,
+  "kind": "board",
+  "s": 2,
+  "t_start": 142.6,
+  "t_end": 201.3,
+  "final_frame": "seg_2_final.jpg",
+  "ocr": "인접 행렬 O(V^2)",
+  "ocr_engine": "tesseract"
+ },
+ {
+  "k": 3,
+  "kind": "board",
+  "s": 3,
+  "t_start": 201.3,
+  "t_end": 268.9,
+  "final_frame": "seg_3_final.jpg",
+  "ocr": "인접 리스트 O(V+E)",
+  "ocr_engine": "tesseract"
+ },
+ {
+  "k": 4,
+  "kind": "board",
+  "s": 4,
+  "t_start": 268.9,
+  "t_end": 312.0,
+  "final_frame": "seg_4_final.jpg",
+  "ocr": "탐색 = 모든 정점 방문",
+  "ocr_engine": "tesseract"
+ },
+ {
+  "k": 5,
+  "kind": "board",
+  "s": 5,
+  "t_start": 312.0,
+  "t_end": 340.4,
+  "final_frame": "seg_5_final.jpg",
+  "ocr": "BFS: queue 사용, O(V+E)",
+  "ocr_engine": "tesseract"
+ },
+ {
+  "k": 6,
+  "kind": "board",
+  "s": 6,
+  "t_start": 340.4,
+  "t_end": 418.2,
+  "final_frame": "seg_6_final.jpg",
+  "ocr": "BFS 레벨 순회, 최단경로(무가중)",
+  "ocr_engine": "tesseract"
+ },
+ {
+  "k": 7,
+  "kind": "board",
+  "s": 7,
+  "t_start": 418.2,
+  "t_end": 506.7,
+  "final_frame": "seg_7_final.jpg",
+  "ocr": "DFS: stack / 재귀",
+  "ocr_engine": "tesseract"
+ },
+ {
+  "k": 8,
+  "kind": "board",
+  "s": 8,
+  "t_start": 506.7,
+  "t_end": 588.0,
+  "final_frame": "seg_8_final.jpg",
+  "ocr": "DFS 백트래킹, 사이클 검출",
+  "ocr_engine": "tesseract"
+ }
+]

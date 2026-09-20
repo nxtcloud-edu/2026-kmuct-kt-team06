@@ -1,0 +1,50 @@
+[
+ {
+  "slug": "bfs",
+  "path": "wiki/concepts/bfs.md",
+  "title": "너비 우선 탐색 (BFS)",
+  "type": "concept",
+  "status": "approved",
+  "links": [
+   "dfs",
+   "graph-representation"
+  ],
+  "updated": "2026-09-20T09:00:00"
+ },
+ {
+  "slug": "dfs",
+  "path": "wiki/concepts/dfs.md",
+  "title": "깊이 우선 탐색 (DFS)",
+  "type": "concept",
+  "status": "draft",
+  "links": [
+   "bfs"
+  ],
+  "updated": "2026-09-20T09:02:00"
+ },
+ {
+  "slug": "graph-representation",
+  "path": "wiki/concepts/graph-representation.md",
+  "title": "그래프 표현 (인접 행렬 / 인접 리스트)",
+  "type": "concept",
+  "status": "grey",
+  "links": [
+   "bfs",
+   "dfs"
+  ],
+  "updated": "2026-09-20T09:03:00"
+ },
+ {
+  "slug": "L3",
+  "path": "wiki/lectures/L3.md",
+  "title": "L3 — 그래프 탐색",
+  "type": "lecture",
+  "status": "approved",
+  "links": [
+   "bfs",
+   "dfs",
+   "graph-representation"
+  ],
+  "updated": "2026-09-20T09:04:00"
+ }
+]

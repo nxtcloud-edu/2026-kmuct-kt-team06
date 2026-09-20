@@ -1,0 +1,18 @@
+[
+ {
+  "k": 5,
+  "s": 5,
+  "text": "큐에 넣을 때 방문 표시! 꺼낼 때 하면 중복 들어감 ← 시험에 나온다고 함",
+  "anchor": "L3#s5@t=340",
+  "frame": "/raw/L3/seg_5_final.jpg",
+  "updated": "2026-09-20T09:10:00"
+ },
+ {
+  "k": 7,
+  "s": 7,
+  "text": "DFS 재귀 깊이 조심. 파이썬 sys.setrecursionlimit(10**6)",
+  "anchor": "L3#s7@t=506",
+  "frame": "/raw/L3/seg_7_final.jpg",
+  "updated": "2026-09-20T09:12:00"
+ }
+]

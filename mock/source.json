@@ -1,0 +1,15 @@
+{
+ "lecture": "L3",
+ "k": 5,
+ "s": 5,
+ "t_start": 312.0,
+ "t_end": 340.4,
+ "frame": "/raw/L3/seg_5_final.jpg",
+ "slide": null,
+ "video": {
+  "kind": "mp4",
+  "src": "/raw/L3/L3.mp4"
+ },
+ "ocr": "BFS: queue 사용, O(V+E)",
+ "exists": true
+}

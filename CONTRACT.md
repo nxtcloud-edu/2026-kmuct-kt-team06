@@ -85,7 +85,7 @@
 | GET | `/api/source?anchor=L3%23s7%40t%3D340` | `{lecture:"L3", k, s, t_start, t_end, frame:"/raw/L3/seg_7_final.jpg"\|null, slide:"..."\|null, video:{kind,src}, ocr, exists:true}` · 없으면 404 `SOURCE_NOT_FOUND` |
 | GET | `/api/notes/{lecture}` | `[{k, s, text, anchor, frame, updated}]` |
 | POST | `/api/notes` | 요청 `{lecture:"L3", k:7, text:"..."}` → `{ok:true, path, anchor, frame}` · WritePolicy 거부 시 **422** `{"error":{"code":"WRITE_REJECTED","message":"<훅이 준 이유 그대로>"}}` |
-| GET | `/api/stats` | `{lectures, pages, approved, draft, grey, links, notes, coverage:{covered, total}}` |
+| GET | `/api/stats` | `{lectures, pages, approved, draft, grey, links, notes, coverage:{covered, total}, hooks:{…}}` — `hooks` = `tools.hook_metrics.metrics()` 그대로(시도·통과·거부·거부 후 재작성 통과·규칙별·에이전트별·앵커 수). 모양은 `mock/stats.json` |
 | GET | `/api/history?limit=10` | `[{ts, agent, tool, path, verdict, reason}]` (최신순) |
 | POST | `/api/qa` | 요청 `{question, model:"fast"\|"strong"\|"gemini", context:{slug, anchor\|null}}` → `{answer, anchors:[str], notes:[{anchor,text}], unanchored:[str], model, videos:[§5.1]}` · 위키에 근거 없으면 **200** `{answer:null, reason:"NO_GROUNDING", message, videos:[...]}` |
 | GET | `/api/youtube/search?q=` | `[§5.1]` — 교수 채널 결과 먼저, 그다음 일반 검색 |

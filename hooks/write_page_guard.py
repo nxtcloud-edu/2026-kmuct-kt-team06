@@ -17,7 +17,28 @@ WRITE_ROOTS = {
 ROOT = pathlib.Path(__file__).resolve().parent.parent   # cwd 가 어디든 같은 파일을 본다
 AUDIT = ROOT / "wiki/.history.jsonl"
 
-def deny(reason): return {"decision": "block", "reason": f"REJECTED: {reason}"}
+# 거부 사유 → 규칙 ID. 대시보드 집계(tools/hook_metrics.py)의 축. 문구를 바꾸면 여기 패턴도 같이 바꾼다
+RULES = [
+    ("R01_write_root",   r"may only write under",                 "쓰기 루트 밖"),
+    ("R02_path_escape",  r"path escapes|note path must be",       "경로 위조"),
+    ("R04_no_anchor",    r"without anchor|has no anchor|no '### 📄|needs numbered sections|needs '## Current'", "앵커·형식 없음"),
+    ("R05_dead_anchor",  r"has no segment|points to no segment",  "없는 구간을 가리키는 앵커"),
+    ("R06_fake_anchor",  r"not a source anchor|cannot contain source anchors|range anchors", "가짜·범위 앵커"),
+    ("R07_external_link", r"outside '> \[!",                     "콜아웃 밖 외부 링크"),
+    ("R08_unsafe_html",  r"raw HTML",                             "HTML·스크립트 삽입"),
+    ("R09_status_only",  r"may only change frontmatter",          "승인인 척 본문 수정"),
+    ("R03_frontmatter",  r"frontmatter",                          "프론트매터 누락"),
+    ("R10_size",         r"larger than",                          "크기 초과"),
+    ("R11_linker_body",  r"linker may only",                      "링커의 본문 변경"),
+]
+
+def rule_of(reason):
+    for rid, pat, _ in RULES:
+        if re.search(pat, reason):
+            return rid
+    return "R99_other"
+
+def deny(reason): return {"decision": "block", "reason": f"REJECTED: {reason}", "rule": rule_of(reason)}
 def sha(s):       return hashlib.sha256(s.encode()).hexdigest()[:12]
 def body(c):      return c.split("---", 2)[-1] if c.count("---") >= 2 else c
 
@@ -143,7 +164,8 @@ def check(ev):
             return deny(f"anchor {m.group(0)}: L{L} slide {s} has no segment at t={t}")
 
     old = old_text
-    log({"agent": agent, "tool": tool, "path": path, "verdict": "allow",
+    log({"agent": agent, "tool": tool, "path": path, "verdict": "allow", "attempt": ev.get("attempt", 1), "run": ev.get("run"),
+         "anchors": len(ANCHOR.findall(content)), "quotes": len(re.findall(r"^> 🗣", content, re.M)),
          "beforeSha": sha(old), "afterSha": sha(content),
          "beforeContent": old, "afterContent": content})
     return {"decision": "allow"}
@@ -159,5 +181,7 @@ if __name__ == "__main__":
     out = check(ev)
     if out["decision"] == "block":
         log({"agent": ev.get("agent"), "tool": ev.get("tool_name"),
-             "path": ev.get("tool_input", {}).get("path"), "verdict": "deny", "reason": out["reason"]})
+             "path": ev.get("tool_input", {}).get("path"), "verdict": "deny", "rule": out.get("rule"),
+             "reason": out["reason"], "lecture": (re.search(r"L(\d+)", ev.get("tool_input", {}).get("path", "") or "") or [None, None])[1],
+             "attempt": ev.get("attempt", 1), "run": ev.get("run")})
     print(json.dumps(out, ensure_ascii=False))

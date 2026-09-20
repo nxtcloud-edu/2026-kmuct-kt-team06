@@ -6,7 +6,7 @@ stdout: {"decision": "allow"|"block", "reason": "..."}   (exit 0 / 2)
 import json, sys
 from pathlib import Path
 
-REQUIRED = {"k": int, "kind": str, "s": int, "t_start": (int, float), "t_end": (int, float), "final_frame": str}
+REQUIRED = {"k": int, "kind": str, "s": int, "t_start": (int, float), "t_end": (int, float), "final_frame": (str, type(None))}
 
 
 def check(root: Path):
@@ -16,7 +16,7 @@ def check(root: Path):
     segs = json.loads(p.read_text(encoding="utf-8"))
     if not segs:
         return ["세그먼트 0개. --th 값을 낮춰 다시 분할 (판서 강의는 0.15~0.25)."]
-    errs, prev_end = [], 0.0
+    errs, prev_end = [], None   # 첫 구간은 0초가 아니어도 된다(녹음 앞 무음)
     for i, s in enumerate(segs):
         for key, typ in REQUIRED.items():
             if not isinstance(s.get(key), typ):
@@ -26,9 +26,12 @@ def check(root: Path):
                 errs.append(f"[{i}] kind는 slide|board")
             if not s["t_start"] < s["t_end"]:
                 errs.append(f"[{i}] t_start({s['t_start']}) >= t_end({s['t_end']})")
-            if abs(s["t_start"] - prev_end) > 0.11:
+            if prev_end is not None and abs(s["t_start"] - prev_end) > 0.11:
                 errs.append(f"[{i}] 구간이 이어지지 않음: 앞 구간 끝 {prev_end}, 시작 {s['t_start']} (겹침·빈틈)")
-            if not (root / s["final_frame"]).exists():
+            if s["final_frame"] is None:   # 녹음+PDF 강의: 프레임 대신 슬라이드 PNG 가 화면에 뜬다
+                if s["kind"] != "slide" or not (root / "slides" / f"s{s['s']}.png").exists():
+                    errs.append(f"[{i}] final_frame 이 없으면 slides/s{s['s']}.png 가 있어야 한다 (pdftoppm -png -r 80)")
+            elif not (root / s["final_frame"]).exists():
                 errs.append(f"[{i}] 프레임 파일 없음: {s['final_frame']}")
             prev_end = s["t_end"]
     return errs

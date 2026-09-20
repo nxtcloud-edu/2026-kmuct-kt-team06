@@ -19,3 +19,16 @@ raw/L*/
 raw/L3/*.mp4
 *.xlsx
 private/
+
+# 공개 저장소다. 실제 강의에서 나온 위키 산출물도 교수님 저작물이다 → 견본(L3)만 추적한다
+wiki/episodic/*
+!wiki/episodic/.gitkeep
+wiki/lectures/*
+!wiki/lectures/L3_그래프_탐색.md
+wiki/concepts/*
+!wiki/concepts/bfs.md
+!wiki/concepts/dfs.md
+!wiki/concepts/graph-representation.md
+wiki/notes/*
+!wiki/notes/L3/
+wiki/signals/coverage.md

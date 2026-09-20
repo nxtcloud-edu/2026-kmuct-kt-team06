@@ -7,6 +7,8 @@
 **스택**: Python 표준 라이브러리 우선. LLM 호출은 팀장의 `pipeline/llm.py`(T2 이후 생김) — 그 전엔 가짜 답으로 배선만.
 **키**: `OPENAI_API_KEY` `GEMINI_API_KEY` `ANTHROPIC_API_KEY` `TRANSCRIPT_API_KEY` 는 **환경변수로만.** 코드·저장소·로그·응답에 넣지 않는다.
 
+> 요구사항(EARS)·태스크는 `.kiro/specs/back-wooseok/`. `/api/stats` 에 `hooks`(= `tools.hook_metrics.metrics()`) 를 싣는다. 훅 로그의 `verdict` 는 `allow`/`deny`, 거부에는 `rule`(R01~R11).
+
 ## 30분 단위
 
 ### T1 (0:00–0:30) 서버 뼈대 = devserve + /api

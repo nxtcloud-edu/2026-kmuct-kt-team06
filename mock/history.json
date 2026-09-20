@@ -1,82 +1,82 @@
 [
  {
-  "ts": "2026-09-20T09:12:31",
-  "agent": "user",
-  "tool": "save_note",
-  "path": "wiki/notes/L3/s7.md",
-  "verdict": "allow",
-  "reason": ""
- },
- {
-  "ts": "2026-09-20T09:11:02",
+  "ts": "2026-09-20T11:21:09",
   "agent": "compile",
-  "tool": "write_page",
-  "path": "wiki/concepts/graph-representation.md",
+  "path": "wiki/lectures/L3_그래프_탐색.md",
   "verdict": "deny",
-  "reason": "anchor [[L3#s2@t=999]]: L3 s2 has no segment at t=999"
+  "rule": "R08_unsafe_html",
+  "reason": "REJECTED: raw HTML/script is not allowed in wiki content"
  },
  {
-  "ts": "2026-09-20T09:10:44",
+  "ts": "2026-09-20T11:21:09",
   "agent": "user",
-  "tool": "save_note",
+  "path": "wiki/concepts/bfs.md",
+  "verdict": "deny",
+  "rule": "R09_status_only",
+  "reason": "REJECTED: user may only change frontmatter 'status:' on wiki pages"
+ },
+ {
+  "ts": "2026-09-20T11:21:09",
+  "agent": "user",
   "path": "wiki/notes/L3/s5.md",
   "verdict": "allow",
-  "reason": ""
+  "rule": null,
+  "reason": null
  },
  {
-  "ts": "2026-09-20T09:09:10",
-  "agent": "compile",
-  "tool": "write_page",
-  "path": "wiki/concepts/dfs.md",
-  "verdict": "allow",
-  "reason": ""
- },
- {
-  "ts": "2026-09-20T09:08:55",
-  "agent": "compile",
-  "tool": "write_page",
-  "path": "wiki/concepts/dfs.md",
-  "verdict": "deny",
-  "reason": "paragraph 2 has no anchor in ## Current"
- },
- {
-  "ts": "2026-09-20T09:07:20",
-  "agent": "compile",
-  "tool": "write_page",
-  "path": "wiki/concepts/bfs.md",
-  "verdict": "allow",
-  "reason": ""
- },
- {
-  "ts": "2026-09-20T09:06:03",
-  "agent": "align",
-  "tool": "append_episodic",
-  "path": "wiki/episodic/L3.md",
-  "verdict": "allow",
-  "reason": ""
- },
- {
-  "ts": "2026-09-20T09:05:41",
+  "ts": "2026-09-20T11:21:09",
   "agent": "signal-ingest",
-  "tool": "write_page",
   "path": "wiki/concepts/bfs.md",
   "verdict": "deny",
-  "reason": "agent signal-ingest may only write under wiki/signals/"
+  "rule": "R01_write_root",
+  "reason": "REJECTED: signal-ingest may only write under ['wiki/signals/'], got 'wiki/concepts/bfs.md'"
  },
  {
-  "ts": "2026-09-20T09:05:02",
-  "agent": "align",
-  "tool": "append_episodic",
-  "path": "wiki/episodic/L3.md",
-  "verdict": "allow",
-  "reason": ""
- },
- {
-  "ts": "2026-09-20T09:04:18",
+  "ts": "2026-09-20T11:21:09",
   "agent": "compile",
-  "tool": "write_page",
-  "path": "wiki/concepts/bfs.md",
+  "path": "wiki/notes/L3/s5.md",
   "verdict": "deny",
-  "reason": "anchor [[note:L3/s5]] is not a source anchor"
+  "rule": "R01_write_root",
+  "reason": "REJECTED: compile may only write under ['wiki/concepts/', 'wiki/lectures/'], got 'wiki/notes/L3/s5.md'"
+ },
+ {
+  "ts": "2026-09-20T11:21:09",
+  "agent": "compile",
+  "path": "wiki/concepts/dfs.md",
+  "verdict": "allow",
+  "rule": null,
+  "reason": null
+ },
+ {
+  "ts": "2026-09-20T11:21:09",
+  "agent": "compile",
+  "path": "wiki/concepts/dfs.md",
+  "verdict": "deny",
+  "rule": "R04_no_anchor",
+  "reason": "REJECTED: paragraph without anchor: '되돌아오는 시점에 방문 상태를 정리하면 사이클을 검출할 수 있다.'"
+ },
+ {
+  "ts": "2026-09-20T11:21:09",
+  "agent": "compile",
+  "path": "wiki/concepts/bfs.md",
+  "verdict": "allow",
+  "rule": null,
+  "reason": null
+ },
+ {
+  "ts": "2026-09-20T11:21:09",
+  "agent": "compile",
+  "path": "wiki/lectures/L3_그래프_탐색.md",
+  "verdict": "allow",
+  "rule": null,
+  "reason": null
+ },
+ {
+  "ts": "2026-09-20T11:21:09",
+  "agent": "compile",
+  "path": "wiki/lectures/L3_그래프_탐색.md",
+  "verdict": "deny",
+  "rule": "R05_dead_anchor",
+  "reason": "REJECTED: anchor [[L3#s2@t=999]]: L3 slide 2 has no segment at t=999"
  }
 ]

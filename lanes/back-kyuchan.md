@@ -7,6 +7,8 @@
 이미 있는 것(검증됨): `hooks/write_page_guard.py` `hooks/qa_stop_guard.py` `hooks/frame_guard.py` `tools/grep_wiki.py` `tools/segment_video.py` · 스킬 6개 · 프롬프트 7개
 없는 것: `pipeline/orchestrator.py`, 스킬 `exam-signal`·`user-notes`, 훅 `ContextInject`·`AgentGuard`·`CoverageCheck`
 
+> 2026-09-20 개정: ②정렬·⑤링커는 **코드**로 내렸다(`tools/build_episodic.py` ✅). 모델은 ③④⑦만. 단계표 `hooks/registry.md`, 요구사항·태스크 `.kiro/specs/back-kyuchan/`. 실강의 `raw/L1`(컴퓨터구조 week_2_2)이 ①② 를 이미 통과해 있다 — 현장 일은 `pipeline/llm.py` → 오케스트레이터 → ③.
+
 ## 30분 단위
 
 ### T0 (도착 직후, 0:00 전) — 남을 막는 것부터

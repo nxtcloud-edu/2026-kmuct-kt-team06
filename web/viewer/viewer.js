@@ -28,6 +28,7 @@
     files: [],
     local: read("motga-documents", []),
     mock: read("motga-mock", true),
+    hiddenSlugs: new Set(read("motga-hidden-slugs", [])),
     page: null,
   };
   function toast(message) {
@@ -208,30 +209,59 @@
       ),
     );
     nav.append(
+      btn(
+        `🗑   휴지통${state.hiddenSlugs.size ? ` (${state.hiddenSlugs.size})` : ""}`,
+        `v-nav ${state.view === "trash" ? "active" : ""}`,
+        () => show("trash"),
+      ),
       el("div", "v-nav-label", "내 라이브러리"),
       el("div", "v-folder", "⌄  ▱  알고리즘"),
     );
-    for (const p of pages.filter((p) => p.type === "lecture"))
-      nav.append(
-        btn(
-          `▤  ${p.title.replace(/^L\d+\. /, "").split(" — ")[0]}`,
-          `v-nav v-file ${state.slug === p.slug && state.view === "note" ? "active" : ""}`,
-          () => show("note", p.slug),
-        ),
+    for (const p of pages.filter((p) => p.type === "lecture" && !state.hiddenSlugs.has(p.slug))) {
+      const item = el("div", "v-nav-local-row");
+      const link = btn(
+        `▤  ${p.title.replace(/^L\d+\. /, "").split(" — ")[0]}`,
+        `v-nav v-file ${state.slug === p.slug && state.view === "note" ? "active" : ""}`,
+        () => show("note", p.slug),
       );
+      const del = btn("🗑", "v-icon-button v-nav-delete", (e) => {
+        e.stopPropagation();
+        deleteNote(p.slug);
+      });
+      del.title = "노트 숨기기";
+      del.setAttribute("aria-label", `${p.title} 삭제`);
+      item.append(link, del);
+      nav.append(item);
+    }
     nav.append(el("div", "v-folder", "⌄  ▱  개념 노트"));
-    for (const p of pages.filter((p) => p.type === "concept"))
-      nav.append(
-        btn(
-          `◇  ${p.title}`,
-          `v-nav v-file ${state.slug === p.slug && state.view === "note" ? "active" : ""}`,
-          () => show("note", p.slug),
-        ),
+    for (const p of pages.filter((p) => p.type === "concept" && !state.hiddenSlugs.has(p.slug))) {
+      const item = el("div", "v-nav-local-row");
+      const link = btn(
+        `◇  ${p.title}`,
+        `v-nav v-file ${state.slug === p.slug && state.view === "note" ? "active" : ""}`,
+        () => show("note", p.slug),
       );
-    for (const p of state.local)
-      nav.append(
-        btn(`▤  ${p.title}`, "v-nav v-file", () => show("local", p.id)),
-      );
+      const del = btn("🗑", "v-icon-button v-nav-delete", (e) => {
+        e.stopPropagation();
+        deleteNote(p.slug);
+      });
+      del.title = "노트 숨기기";
+      del.setAttribute("aria-label", `${p.title} 삭제`);
+      item.append(link, del);
+      nav.append(item);
+    }
+    for (const p of state.local) {
+      const item = el("div", "v-nav-local-row");
+      const link = btn(`▤  ${p.title}`, "v-nav v-file", () => show("local", p.id));
+      const del = btn("🗑", "v-icon-button v-nav-delete", (e) => {
+        e.stopPropagation();
+        deleteLocal(p.id);
+      });
+      del.title = "노트 삭제";
+      del.setAttribute("aria-label", `${p.title} 삭제`);
+      item.append(link, del);
+      nav.append(item);
+    }
     const bottom = el("div", "v-sidebar-bottom");
     bottom.append(el("div", "v-library-tip", "배운 모든 것이,\n연결되는 곳."));
     bottom.append(btn("＋  강의 자료 추가", "v-add", () => show("upload")));
@@ -260,6 +290,35 @@
       emit("dashboard-open", { main });
       return;
     }
+    if (view === "trash") {
+      const hidden = pages.filter((p) => state.hiddenSlugs.has(p.slug));
+      heading(
+        "TRASH",
+        hidden.length ? "숨긴 노트를 복원할 수 있어요." : "휴지통이 비어 있습니다.",
+        "숨김 처리한 노트는 목록에서 보이지 않지만, 여기서 다시 복원할 수 있습니다.",
+      );
+      if (!hidden.length) {
+        main.append(el("p", "v-empty", "숨긴 노트가 아직 없습니다."));
+        return;
+      }
+      const list = el("div", "v-trash-list");
+      for (const p of hidden) {
+        const row = el("div", "v-trash-row");
+        const info = el("div", "v-trash-info");
+        info.append(
+          el("strong", "v-trash-title", p.title),
+          el("small", "v-muted", p.type === "lecture" ? "강의 노트" : "개념 노트"),
+        );
+        const actions = el("div", "v-trash-actions");
+        actions.append(
+          btn("복원", "v-secondary", () => restoreHiddenNote(p.slug)),
+        );
+        row.append(info, actions);
+        list.append(row);
+      }
+      main.append(list);
+      return;
+    }
     if (view === "upload") return upload();
     if (view === "search") return searchView();
     if (view === "local") {
@@ -270,6 +329,11 @@
         p.title,
         "이 브라우저에 저장된 자료입니다. AI 분석은 아직 연결되지 않았습니다.",
       );
+      const delBtn = btn("🗑  노트 삭제", "v-secondary v-btn-danger", () =>
+        deleteLocal(p.id),
+      );
+      delBtn.title = "이 노트를 삭제합니다";
+      main.append(delBtn);
       main.append(
         el(
           "div",
@@ -324,6 +388,11 @@
       el("span", "", "L3 · 8개 구간"),
       el("span", "", state.mock ? "샘플 강의" : "강의 노트"),
     );
+    const delNoteBtn = btn("🗑  노트 삭제", "v-secondary v-btn-danger", () =>
+      deleteNote(p.slug),
+    );
+    delNoteBtn.title = "이 노트를 목록에서 숨깁니다";
+    meta.append(delNoteBtn);
     main.append(meta);
     const callout = el("div", "v-intro");
     callout.append(
@@ -538,6 +607,64 @@
     );
     draw();
   }
+  function restoreHiddenNote(slug) {
+    if (!state.hiddenSlugs.has(slug)) return;
+    state.hiddenSlugs.delete(slug);
+    save("motga-hidden-slugs", [...state.hiddenSlugs]);
+    sidebar();
+    toast("숨긴 노트를 복원했습니다.");
+    if (state.view === "trash") show("trash");
+    else show("note", slug);
+  }
+  function deleteNote(slug) {
+    const p = pages.find((p) => p.slug === slug);
+    if (!p) return;
+    const dialog = el("dialog", "v-dialog");
+    dialog.append(
+      el("h2", "", "노트 숨기기"),
+      el("p", "v-muted", `"${p.title}" 노트를 목록에서 숨기시겠습니까? 새로고침 후에도 유지되며, 휴지통에서 복원할 수 있습니다.`),
+    );
+    dialog.append(
+      btn("숨기기", "v-primary v-btn-danger", () => {
+        state.hiddenSlugs.add(slug);
+        save("motga-hidden-slugs", [...state.hiddenSlugs]);
+        dialog.close();
+        toast(`"${p.title}" 노트를 휴지통으로 보냈습니다.`);
+        const next = pages.find((p) => !state.hiddenSlugs.has(p.slug));
+        if (next) show("note", next.slug);
+        else show("dashboard");
+      }),
+      btn("취소", "v-secondary", () => dialog.close()),
+    );
+    dialog.addEventListener("close", () => dialog.remove());
+    root.append(dialog);
+    dialog.showModal();
+  }
+  function deleteLocal(id) {
+    const p = state.local.find((p) => p.id === id);
+    if (!p) return;
+    const dialog = el("dialog", "v-dialog");
+    dialog.append(
+      el("h2", "", "노트 삭제"),
+      el("p", "v-muted", `"${p.title}" 노트를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`),
+    );
+    dialog.append(
+      btn("삭제", "v-primary v-btn-danger", () => {
+        state.local = state.local.filter((p) => p.id !== id);
+        save("motga-documents", state.local);
+        localAssets.delete(id);
+        dialog.close();
+        toast(`"${p.title}" 노트를 삭제했습니다.`);
+        const next = state.local[0];
+        if (next) show("local", next.id);
+        else show("note", pages[0]?.slug);
+      }),
+      btn("취소", "v-secondary", () => dialog.close()),
+    );
+    dialog.addEventListener("close", () => dialog.remove());
+    root.append(dialog);
+    dialog.showModal();
+  }
   function settings() {
     const dialog = el("dialog", "v-dialog");
     dialog.append(el("h2", "", "학습 공간 설정"));
@@ -563,6 +690,33 @@
       }),
       btn("닫기", "v-secondary", () => dialog.close()),
     );
+    if (state.hiddenSlugs.size > 0) {
+      const trashBtn = btn(
+        `🗑  휴지통 열기 (${state.hiddenSlugs.size}개)`,
+        "v-secondary",
+        () => {
+          dialog.close();
+          show("trash");
+        },
+      );
+      trashBtn.style.marginTop = "12px";
+      trashBtn.style.width = "100%";
+      dialog.append(trashBtn);
+      const restoreBtn = btn(
+        `↩  숨긴 노트 모두 복원`,
+        "v-secondary",
+        () => {
+          state.hiddenSlugs.clear();
+          save("motga-hidden-slugs", []);
+          dialog.close();
+          sidebar();
+          toast("숨긴 노트를 모두 복원했습니다.");
+        },
+      );
+      restoreBtn.style.marginTop = "8px";
+      restoreBtn.style.width = "100%";
+      dialog.append(restoreBtn);
+    }
     dialog.addEventListener("close", () => dialog.remove());
     root.append(dialog);
     dialog.showModal();

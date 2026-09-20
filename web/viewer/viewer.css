@@ -162,6 +162,36 @@
   font-weight: 600;
   letter-spacing: 0.04em;
 }
+.v-trash-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 24px;
+}
+.v-trash-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--v-line);
+  border-radius: 10px;
+  background: #faf9ff;
+}
+.v-trash-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.v-trash-title {
+  font-weight: 600;
+  word-break: break-word;
+}
+.v-trash-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .v-folder {
   margin: 10px 12px;
   color: #777d89;
@@ -735,6 +765,54 @@
     padding: 18px;
   }
 }
+/* 로컬 노트 사이드바 행 — 링크 + 휴지통 버튼 나란히 */
+.v-nav-local-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+.v-nav-local-row .v-nav {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v-nav-delete {
+  flex-shrink: 0;
+  opacity: 0;
+  font-size: 14px !important;
+  padding: 4px 7px;
+  color: #b87070 !important;
+  border-radius: 5px;
+  transition: opacity 0.15s, background 0.15s !important;
+}
+.v-nav-local-row:hover .v-nav-delete,
+.v-nav-local-row:focus-within .v-nav-delete {
+  opacity: 1;
+}
+.v-nav-delete:hover {
+  background: #fbeaea !important;
+}
+
+/* 삭제 강조 버튼 (로컬 뷰 본문 + 다이얼로그) */
+.v-btn-danger {
+  color: #b04040 !important;
+  border-color: #e8c4c4 !important;
+}
+.v-btn-danger:hover {
+  background: #fdf0f0 !important;
+}
+/* 다이얼로그 내 삭제 버튼은 채워진 스타일 */
+.v-dialog .v-btn-danger {
+  background: #c0392b !important;
+  color: white !important;
+  border: 0 !important;
+}
+.v-dialog .v-btn-danger:hover {
+  background: #a93226 !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .v-app * {
     transition: none !important;

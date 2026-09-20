@@ -25,7 +25,7 @@
 ### T3 (1:00–1:30) stats · history · models
 - `stats`: `wiki/concepts` `wiki/lectures` 프론트매터 스캔(파서는 직접 20줄: `key: value`, `[a, b]`) → 페이지·status별·링크·필기 수 + `wiki/signals/coverage.md` 있으면 `coverage`
 - `history`: `wiki/.history.jsonl` 꼬리 N줄 역순
-- `review`(PRD §4.8): `segments.json` confidence<0.55 · 프론트매터 status grey/draft · `.history.jsonl` 에서 REJECTED 뒤 allow 된 path → 목록. `approve` 는 `agent:"user"` 로 `write_page_guard.py` 에 태워 `status: approved` 한 줄만 바꾼다
+- `review`(PRD §4.8): `segments.json` confidence 낮은 순 5개(`reviewed:true` 제외, 확률 아님) · 프론트매터 status grey/draft · `.history.jsonl` 에서 REJECTED 뒤 allow 된 path → 목록. `approve` 는 `agent:"user"` 로 `write_page_guard.py` 에 태워 `status: approved` 한 줄만 바꾼다
 - `models`: `[{id:"fast",label},{id:"strong",label},{id:"gemini",label}]` — 라벨은 환경변수 `LLM_FAST` 등에서
 - **완료 조건**: 민수 대시보드가 `USE_MOCK=false` 로 뜬다.
 

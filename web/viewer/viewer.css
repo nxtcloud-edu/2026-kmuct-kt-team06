@@ -1,5 +1,6 @@
 @import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Libre+Baskerville:wght@400;700&family=Noto+Sans+KR:wght@400;500;700;800&display=swap");
 :root {
+  color-scheme: only light;
   --v-bg: #f5f1ec;
   --v-line: #e5ddd5;
   --v-text: #1f1b1a;
@@ -350,9 +351,46 @@
   gap: 8px;
 }
 .v-folder {
-  margin: 10px 12px;
+  margin: 0;
+  padding: 10px 8px;
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: #777d89;
   font-size: 12px;
+}
+.v-folder-row {
+  display: flex;
+  align-items: center;
+  margin: 6px 0;
+}
+.v-folder:hover,
+.v-folder-add:hover {
+  background: var(--v-soft);
+  border-radius: 6px;
+}
+.v-folder-add {
+  flex-shrink: 0;
+  padding: 6px 10px;
+}
+.v-folder-children .v-folder-section {
+  margin-left: 12px;
+  border-left: 1px solid var(--v-line);
+}
+.v-folder-empty {
+  margin: 8px 0 14px 28px;
+  font-size: 12px;
+  color: var(--v-muted);
+}
+.v-folder-form {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 20px;
 }
 .v-file {
   padding-left: 28px;
@@ -908,6 +946,8 @@
   margin: 25px 0;
 }
 .v-dialog {
+  background: #fffcf8;
+  color: var(--v-text);
   border: 1px solid var(--v-line);
   border-radius: 12px;
   padding: 30px;
@@ -1001,12 +1041,40 @@
   width: 100%;
   max-height: 230px;
 }
-.v-media-empty {
-  font-size: 10px;
-  background: #f7f6fa;
-  text-align: center;
-  padding: 13px;
-  color: #8d859d;
+.v-player:fullscreen,
+.v-app .v-player.v-player-fullscreen {
+  position: fixed;
+  inset: 0 !important;
+  width: 100vw;
+  height: 100dvh;
+  max-height: none;
+  border: 0;
+  border-radius: 0;
+  z-index: 1000;
+  cursor: default;
+}
+.v-player:fullscreen .v-player-head,
+.v-player-fullscreen .v-player-head {
+  cursor: default;
+}
+.v-player:fullscreen .v-frame,
+.v-player-fullscreen .v-frame,
+.v-player:fullscreen video,
+.v-player-fullscreen video {
+  max-height: calc(100dvh - 64px);
+  object-fit: contain;
+}
+.v-player:fullscreen .v-frame,
+.v-player-fullscreen .v-frame {
+  height: calc(100dvh - 64px);
+}
+.v-player:fullscreen:has(video, audio) .v-frame,
+.v-player-fullscreen:has(video, audio) .v-frame {
+  height: 35dvh;
+}
+.v-player:fullscreen video,
+.v-player-fullscreen video {
+  height: 50dvh;
 }
 .v-auto-pause {
   display: flex;

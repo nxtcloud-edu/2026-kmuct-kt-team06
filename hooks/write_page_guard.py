@@ -156,6 +156,12 @@ def check(ev):
         for key in ("title:", "type:", "status:", "sources:"):
             if key not in fm:
                 return deny(f"frontmatter missing '{key}'")
+        # 따옴표 없는 title 에 ': ' 나 '#' 이 있으면 YAML 이 깨져 Quartz 빌드 전체가 실패한다(2026-09-20 실측: L2·L4).
+        t = re.search(r"^title:\s*(.+)$", fm, re.M)
+        if t:
+            v = t.group(1).strip()
+            if not (v[:1] in "\"'" and v[-1:] == v[:1]) and re.search(r":\s|\s#", v):
+                return deny("frontmatter title contains ': ' or ' #' — wrap the title in double quotes")
         if FAKE_ANCHOR.search(content):
             return deny("[[note:]] / [[signal:]] is not a source anchor")
         if path.startswith("wiki/lectures/"):

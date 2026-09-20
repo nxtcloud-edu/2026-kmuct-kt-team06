@@ -4,14 +4,28 @@
       "kind": "audio",
       "src": "/raw/L1/L1.mp4"
     },
-    "date": "2026-09-13"
+    "date": "2026-09-13",
+    "course": "컴퓨터구조"
+  },
+  "L2": {
+    "course": "컴퓨터구조",
+    "date": "2026-09-15"
   },
   "L3": {
     "video": {
       "kind": "mp4",
       "src": "/raw/L3/L3.mp4"
     },
-    "date": "2026-09-15"
+    "date": "2026-09-15",
+    "course": "알고리즘(견본)"
+  },
+  "L4": {
+    "course": "알고리즘",
+    "date": "2026-09-17"
+  },
+  "L5": {
+    "course": "시스템소프트웨어",
+    "date": "2026-09-16"
   },
   "professorChannel": "UC_replace_with_real_channel_id"
 }

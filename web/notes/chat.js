@@ -44,8 +44,8 @@
     );
     const suggestions = el("div", "n-suggestions");
     for (const q of [
-      "BFS와 DFS는 어떻게 달라?",
-      "BFS의 시간복잡도를 알려줘",
+      "add와 addi는 어떻게 달라?",
+      "머지소트와 퀵소트의 차이를 알려줘",
       "시험에 나온다고 하신 부분",
     ])
       suggestions.append(

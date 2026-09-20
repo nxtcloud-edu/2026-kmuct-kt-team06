@@ -591,3 +591,44 @@
   .n-transcript-quote-row { gap: 8px; }
   .n-transcript-play { padding: 8px; font-size: 11px !important; }
 }
+
+/* 추천 질문 — 환영 화면의 캡션 + 대화가 시작된 뒤 입력창 위의 한 줄 */
+.n-suggest-caption {
+  display: block;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  color: #b0a9be;
+  margin-bottom: 2px;
+}
+.n-quick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 9px;
+}
+.n-quick[hidden] {
+  display: none;
+}
+.n-quick-caption {
+  width: 100%;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  color: #b0a9be;
+}
+.n-quick-chip {
+  max-width: 100%;
+  border: 1px solid #eae7f0;
+  background: #fff;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 9px !important;
+  color: #8f86a0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.n-quick-chip:hover {
+  background: #f4f1fa;
+  border-color: #ddd6ec;
+}

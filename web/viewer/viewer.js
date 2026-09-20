@@ -408,6 +408,140 @@
     main.append(el("div", "v-eyebrow", eyebrow), el("h1", "", title));
     if (subtitle) main.append(el("p", "v-subtitle", subtitle));
   }
+  // ── 제목 수정 ───────────────────────────────────────────────
+  // 서버(POST /api/page/rename)와 같은 규칙을 먼저 브라우저에서 확인한다.
+  // 통과하면 "", 아니면 사용자에게 보여 줄 이유를 돌려준다.
+  function titleProblem(raw) {
+    const value = typeof raw === "string" ? raw.trim() : "";
+    if (!value) return "제목을 입력해 주세요.";
+    if (/[\r\n]/.test(value)) return "제목은 한 줄로 입력해 주세요.";
+    if (value.length > 80) return `제목은 80자 이하여야 합니다 (현재 ${value.length}자).`;
+    if (value.includes("[[") || value.includes("]]"))
+      return "제목에는 [[ 나 ]] 를 쓸 수 없습니다.";
+    if (value.includes("<") || value.includes(">"))
+      return "제목에는 < 나 > 를 쓸 수 없습니다.";
+    return "";
+  }
+  // h1 을 인라인 편집기로 바꾼다. commit(next) 는 { ok, title } 또는 { ok:false, message } 를 준다.
+  function beginTitleEdit(h1, currentTitle, commit) {
+    if (!h1 || h1.hidden) return;
+    const editor = el("div", "v-title-edit");
+    const row = el("div", "v-title-edit-row");
+    const input = el("input", "v-title-input");
+    input.type = "text";
+    input.maxLength = 80;
+    input.value = currentTitle || "";
+    input.setAttribute("aria-label", "노트 제목");
+    const reason = el("p", "v-title-error", "");
+    reason.setAttribute("role", "alert");
+    reason.hidden = true;
+    let busy = false;
+    const close = () => {
+      editor.remove();
+      h1.hidden = false;
+    };
+    const complain = (message) => {
+      reason.textContent = message;
+      reason.hidden = false;
+      input.focus();
+    };
+    const saveBtn = btn("저장", "v-primary v-title-save", () => submit());
+    const cancelBtn = btn("취소", "v-secondary", () => {
+      if (!busy) close();
+    });
+    async function submit() {
+      if (busy) return;
+      const problem = titleProblem(input.value);
+      if (problem) return complain(problem);
+      const next = input.value.trim();
+      if (next === currentTitle) return close();
+      busy = true;
+      for (const c of [input, saveBtn, cancelBtn]) c.disabled = true;
+      saveBtn.textContent = "저장 중…";
+      let result;
+      try {
+        result = await commit(next);
+      } catch (error) {
+        result = { ok: false, message: error.message };
+      }
+      busy = false;
+      for (const c of [input, saveBtn, cancelBtn]) c.disabled = false;
+      saveBtn.textContent = "저장";
+      if (result && result.ok) {
+        h1.textContent = result.title || next;
+        close();
+        return;
+      }
+      complain((result && result.message) || "제목을 바꾸지 못했습니다.");
+    }
+    input.oninput = () => {
+      reason.hidden = true;
+      reason.textContent = "";
+    };
+    input.onkeydown = (event) => {
+      if (event.isComposing) return;
+      if (event.key === "Enter") {
+        event.preventDefault();
+        submit();
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!busy) close();
+      }
+    };
+    row.append(input, saveBtn, cancelBtn);
+    editor.append(row, reason);
+    h1.hidden = true;
+    h1.after(editor);
+    input.focus();
+    input.select();
+  }
+  // 제목 수정 버튼 하나. h1 은 heading() 이 방금 붙인 것을 쓴다.
+  function renameButton(currentTitle, commit) {
+    const h1 = main.querySelector("h1");
+    const b = btn("✎  제목 수정", "v-secondary v-rename", () =>
+      beginTitleEdit(h1, currentTitle, commit),
+    );
+    b.title = "이 노트의 제목을 바꿉니다";
+    return b;
+  }
+  async function renameWikiPage(p, next) {
+    if (state.mock) {
+      p.title = next;
+      sidebar();
+      emit("note-opened", { slug: p.slug, title: p.title, type: p.type });
+      toast("샘플 데이터 모드라 이 브라우저에서만 제목을 바꿨습니다.");
+      return { ok: true, title: next };
+    }
+    try {
+      const data = await api("/api/page/rename", {
+        method: "POST",
+        body: JSON.stringify({ id: `page:${p.slug}`, title: next }),
+      });
+      const applied = (data && data.title) || next;
+      // 슬러그(파일 이름)는 바뀌지 않는다 — 그래도 서버가 준 값을 우선해서 찾는다.
+      const target = pages.find((x) => x.slug === ((data && data.slug) || p.slug)) || p;
+      target.title = applied;
+      sidebar();
+      emit("note-opened", { slug: target.slug, title: applied, type: target.type });
+      toast("제목을 바꿨습니다");
+      return { ok: true, title: applied };
+    } catch (error) {
+      toast(`제목 수정 거부: ${error.message}`);
+      return { ok: false, message: error.message };
+    }
+  }
+  function renameLocalNote(p, next) {
+    const before = p.title;
+    p.title = next;
+    if (!save("motga-documents", state.local)) {
+      p.title = before;
+      return { ok: false, message: "이 브라우저에 제목을 저장하지 못했습니다." };
+    }
+    sidebar();
+    toast("제목을 바꿨습니다");
+    return { ok: true, title: next };
+  }
   async function show(view, slug) {
     state.view = view;
     if (slug) state.slug = slug;
@@ -416,6 +550,8 @@
     main.replaceChildren();
     main.scrollTop = 0;
     emit("view-changed", { view });
+    // 노트를 보고 있지 않은 화면(대시보드·검색·업로드·휴지통)에서는 추천 질문을 기본값으로 되돌린다.
+    if (view !== "note" && view !== "local") emit("note-opened", { slug: null });
     if (view === "dashboard") {
       heading("MY LEARNING", "대시보드");
       emit("dashboard-open", { main });
@@ -468,7 +604,12 @@
         deleteLocal(p.id),
       );
       delBtn.title = "이 노트를 삭제합니다";
-      main.append(delBtn);
+      const localActions = el("div", "v-note-actions");
+      localActions.append(
+        renameButton(p.title, async (next) => renameLocalNote(p, next)),
+        delBtn,
+      );
+      main.append(localActions);
       main.append(
         el(
           "div",
@@ -498,12 +639,15 @@
         p.text ||
           "텍스트 전사본이 없습니다. 강의 자료 추가에서 TXT 또는 MD 파일을 함께 선택해 주세요.",
       );
+      // 로컬 노트는 위키 슬러그가 없다 — 채팅은 기본 추천 질문으로 돌아간다.
+      emit("note-opened", { slug: null, title: p.title, type: "local" });
       return;
     }
     state.page = pages.find((p) => p.slug === state.slug) || pages[0];
     const p = state.page;
     if (!p) {
       heading("내 라이브러리", "노트를 불러오지 못했습니다");
+      emit("note-opened", { slug: null });
       return;
     }
     state.slug = p.slug;
@@ -532,7 +676,10 @@
       deleteNote(p.slug),
     );
     delNoteBtn.title = "이 노트를 목록에서 숨깁니다";
-    meta.append(delNoteBtn);
+    meta.append(
+      renameButton(p.title, async (next) => renameWikiPage(p, next)),
+      delNoteBtn,
+    );
     main.append(meta);
     const callout = el("div", "v-intro");
     callout.append(
@@ -574,6 +721,8 @@
       el("div", "", "CONNECT EVERYTHING, SORT EVERYTHING"),
     );
     main.append(noteFooter);
+    // 채팅 패널이 지금 보고 있는 노트에 맞춰 추천 질문을 바꾼다.
+    emit("note-opened", { slug: p.slug, title: p.title, type: p.type });
   }
   app.show = show;
   function searchView() {
@@ -838,6 +987,12 @@
   function percentOf(value) {
     return Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
   }
+  // 진행률은 뒤로 가지 않는다. 서버가 compile 중에 40 → 100 → 44 처럼 보낸 적이 있어
+  // 지금까지 본 최대값을 바닥으로 깔고, done 이 아니면 99 에서 멈춘다.
+  function monotonicPercent(previousMax, value, stage) {
+    const next = Math.max(percentOf(previousMax), percentOf(value));
+    return stage === "done" ? next : Math.min(99, next);
+  }
   let ingest = null;
   let ingestStatus = null;
   let ingestError = null;
@@ -848,8 +1003,18 @@
   let ingestClockTimer = null;
   let ingestFailures = 0;
   let ingestBusy = false;
+  // 지금 job 의 표시용 진행률. 최대값은 job 과 함께 저장해서 새로고침해도 뒤로 가지 않는다.
+  function currentIngestPercent() {
+    const data = ingestStatus || {};
+    const next = monotonicPercent(ingest?.maxPercent, data.percent, data.stage);
+    if (ingest && ingest.maxPercent !== next) {
+      ingest.maxPercent = next;
+      save(INGEST_KEY, ingest); // 칩을 다시 그리지 않도록 saveIngestJob 을 거치지 않는다
+    }
+    return next;
+  }
   const ingestChipText = () =>
-    `◷  ${ingest?.lecture || "강의"} 분석 중 ${percentOf(ingestStatus?.percent)}%`;
+    `◷  ${ingest?.lecture || "강의"} 분석 중 ${currentIngestPercent()}%`;
   function renderIngestChip() {
     const chip = document.querySelector(".v-ingest-chip");
     if (!ingest) {
@@ -1014,7 +1179,7 @@
       step.classList.toggle("done", index >= 0 && i < index);
       step.classList.toggle("current", i === index);
     });
-    const percent = percentOf(data.percent);
+    const percent = currentIngestPercent();
     ui.fill.style.width = `${percent}%`;
     ui.bar.setAttribute("aria-valuenow", String(percent));
     ui.percent.textContent = `${percent}%`;
@@ -1283,6 +1448,7 @@
           title: name,
           course,
           startedAt: Date.now(),
+          maxPercent: 0, // job 이 바뀌면 진행률 바닥도 0 부터 다시
         });
         startIngestPolling();
         show("upload");

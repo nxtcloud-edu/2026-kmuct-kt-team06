@@ -5,6 +5,56 @@
   const { el, btn, api, state, emit } = A;
   let context = null,
     busy = false;
+  // ── 노트별 추천 질문 ─────────────────────────────────────────
+  // 서버가 만들어 두는 정적 파일. 없거나 깨져 있어도 절대 예외를 던지지 않고 고정 질문으로 돌아간다.
+  const SUGGEST_URL = "/web/viewer/suggestions.local.json";
+  // 방금 컴파일된 강의도 새로고침 없이 최대 1분 뒤에는 뜬다.
+  const SUGGEST_TTL = 60000;
+  const SUGGEST_MAX = 3;
+  const SUGGEST_CHARS = 40;
+  const FIXED_PROMPTS = [
+    "add와 addi는 어떻게 달라?",
+    "머지소트와 퀵소트의 차이를 알려줘",
+    "시험에 나온다고 하신 부분",
+  ];
+  let suggestCache = null,
+    suggestAt = 0,
+    suggestPending = null;
+  function loadSuggestions() {
+    if (suggestPending) return suggestPending;
+    if (suggestCache && Date.now() - suggestAt < SUGGEST_TTL)
+      return Promise.resolve(suggestCache);
+    suggestPending = fetch(SUGGEST_URL, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => null)
+      .then((data) => {
+        suggestCache =
+          data && typeof data === "object" && !Array.isArray(data) ? data : {};
+        suggestAt = Date.now();
+        suggestPending = null;
+        return suggestCache;
+      });
+    return suggestPending;
+  }
+  // 이 슬러그의 질문 최대 3개. 형식이 뭐든 이상하면 빈 배열.
+  function pickQuestions(map, slug) {
+    if (!slug || !map || typeof map !== "object") return [];
+    const entry = map[slug];
+    if (!entry || !Array.isArray(entry.questions)) return [];
+    const out = [];
+    for (const raw of entry.questions) {
+      if (typeof raw !== "string") continue;
+      const text = raw.replace(/\s+/g, " ").trim();
+      if (!text || out.includes(text)) continue;
+      out.push(text);
+      if (out.length >= SUGGEST_MAX) break;
+    }
+    return out;
+  }
+  function shorten(text, max = SUGGEST_CHARS) {
+    const value = typeof text === "string" ? text.replace(/\s+/g, " ").trim() : "";
+    return value.length > max ? `${value.slice(0, max - 1)}…` : value;
+  }
   function init() {
     const slot = document.getElementById("chat-slot");
     if (!slot || slot.dataset.ready) return;
@@ -43,18 +93,6 @@
       el("p", "", "강의 속 근거를 찾아\n궁금한 개념을 연결해 드릴게요."),
     );
     const suggestions = el("div", "n-suggestions");
-    for (const q of [
-      "add와 addi는 어떻게 달라?",
-      "머지소트와 퀵소트의 차이를 알려줘",
-      "시험에 나온다고 하신 부분",
-    ])
-      suggestions.append(
-        btn(`${q}  ↗`, "", () => {
-          input.value = q.includes("시험") ? "시험" : q;
-          (q.includes("시험") ? quotes : qa).click();
-          input.focus();
-        }),
-      );
     welcome.append(suggestions);
     messages.append(welcome);
     const footer = el("div", "n-chat-footer");
@@ -86,7 +124,73 @@
       send,
     );
     form.append(input, controls);
-    footer.append(attached, form);
+    // 대화가 시작된 뒤에는 환영 화면 대신, 입력창 위의 작은 줄로만 남는다.
+    const quick = el("div", "n-quick");
+    quick.hidden = true;
+    footer.append(quick, attached, form);
+    // ── 추천 질문 칩 ──────────────────────────────────────────
+    let chipList = FIXED_PROMPTS,
+      chipLive = false,
+      pageToken = 0;
+    const askNow = (question) => {
+      if (busy) return;
+      qa.click();
+      input.value = question;
+      form.requestSubmit();
+    };
+    function chip(question, live, compact) {
+      const label = shorten(question);
+      const b = btn(
+        compact ? label : `${label}  ↗`,
+        compact ? "n-quick-chip" : "",
+        () => {
+          // 노트별 질문은 바로 보낸다. 고정 질문은 예전처럼 입력창만 채운다.
+          if (live) return askNow(question);
+          input.value = question.includes("시험") ? "시험" : question;
+          (question.includes("시험") ? quotes : qa).click();
+          input.focus();
+        },
+      );
+      b.title = question;
+      return b;
+    }
+    function paintChips() {
+      const started = !welcome.isConnected;
+      quick.replaceChildren();
+      quick.hidden = !started;
+      // 대화가 비어 있을 때만 환영 화면 칩을 다시 그린다 — 질문한 뒤에는 화면을 흔들지 않는다.
+      if (!started) {
+        const caption = chipLive ? "이 노트에서 많이 묻는 질문" : "추천 질문";
+        suggestions.replaceChildren(el("small", "n-suggest-caption", caption));
+        for (const q of chipList) suggestions.append(chip(q, chipLive, false));
+        return;
+      }
+      quick.append(el("small", "n-quick-caption", "추천 질문"));
+      for (const q of chipList) quick.append(chip(q, chipLive, true));
+    }
+    async function applyPage(detail) {
+      const token = ++pageToken;
+      const slug = detail && detail.slug ? detail.slug : null;
+      if (!slug) {
+        chipList = FIXED_PROMPTS;
+        chipLive = false;
+        paintChips();
+        return;
+      }
+      let found = [];
+      try {
+        const map = await loadSuggestions();
+        if (token !== pageToken) return;
+        found = pickQuestions(map, slug);
+      } catch {
+        found = [];
+      }
+      if (token !== pageToken) return;
+      chipLive = found.length > 0;
+      chipList = chipLive ? found : FIXED_PROMPTS;
+      paintChips();
+    }
+    window.addEventListener("note-opened", (e) => applyPage(e.detail));
     window.addEventListener("context-reply", (e) => {
       context = e.detail;
       attached.replaceChildren(
@@ -109,6 +213,7 @@
       send.disabled = true;
       const requestedMode = mode;
       welcome.remove();
+      paintChips(); // 환영 화면이 사라졌으니 추천 질문은 입력창 위 한 줄로 옮긴다
       messages.append(el("div", "n-message n-user", question));
       input.value = "";
       const reply = el("div", "n-message n-agent");
@@ -259,6 +364,12 @@
       }
     };
     slot.append(header, tabs, messages, footer);
+    // note-opened 를 놓쳤을 수 있으니(채팅이 늦게 붙는 경우) 지금 상태로 한 번 그린다.
+    applyPage({
+      slug: state.view === "note" ? state.slug : null,
+      title: "",
+      type: "",
+    });
   }
   window.addEventListener("motga-ready", init);
   document.addEventListener("nav", init);

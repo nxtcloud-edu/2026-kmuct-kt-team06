@@ -43,3 +43,10 @@ web/viewer/library.local.json
 
 # 비평 결과(실강의 문장 포함, 실행마다 바뀜) — .history.jsonl 과 같이 추적하지 않는다
 wiki/.critic.jsonl
+
+# 노트별 예상 질문 캐시(실강의 내용으로 생성) — tools/build_suggestions.py 가 만든다
+web/viewer/suggestions.local.json
+
+# 실행 산출물·실강의 원문 백업 — 절대 커밋하지 않는다
+raw/media.local.json
+wiki/.merged-backup/
